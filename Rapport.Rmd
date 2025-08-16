@@ -1,0 +1,4973 @@
+---
+title: ""
+output: 
+  pdf_document:
+    latex_engine: xelatex
+header-includes:
+  - \usepackage{geometry}
+  - \usepackage{graphicx}
+  - \usepackage{fancyhdr}
+  - \usepackage{xcolor}
+  - \usepackage{fontspec}
+  - \usepackage{pdfpages}
+  - \usepackage{booktabs}
+  - \usepackage{longtable}
+  - \usepackage{array}
+  - \usepackage{multirow}
+  - \usepackage{wrapfig}
+  - \usepackage{float}
+  - \usepackage{colortbl}
+  - \usepackage{pdflscape}
+  - \usepackage{tabu}
+  - \usepackage{threeparttable}
+  - \usepackage{xcolor}
+  - \geometry{top=2cm, bottom=2cm, left=2cm, right=2cm}
+  - \pagestyle{empty}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+# Pas besoin de libraries pour LaTeX direct
+
+```
+
+\includepdf[pages=1]{medias/page_de_garde.pdf}
+\newpage
+\thispagestyle{empty}
+\vspace*{\fill}
+\begin{flushleft}
+\fontsize{11}{13}\selectfont
+\textit{Depuis 1946, chaque vie sauvée se célèbre. Mais chaque point de couverture vaccinale manquant, reste un enfant qu'on n'a pas encore atteint. Chaque échec, c'est une vie en sursis. La base de données Wuenic répertorie ces réussites, et ces échecs. La couverture vaccinale infantile, vaccin par vaccin, pays par pays, année après année. Elle croise des données rapportées et estimées pour montrer, sans détour, où les enfants sont protégés… et où ils ne le sont pas encore assez. Avec ce rapport, nous voulons vous aider à faire mieux, là où c'est le plus dur. Pour que plus aucun enfant ne soit oublié.}
+\end{flushleft}
+
+\newpage
+
+\setcounter{tocdepth}{2}
+\tableofcontents
+\newpage
+
+```{r Setup, message=FALSE, warning=FALSE, include=FALSE}
+
+# Liste complète des packages
+
+packages <- c(
+"plyr",
+"tidyverse", "openxlsx", "janitor", "summarytools",
+"rnaturalearth", "rnaturalearthdata", "gganimate",
+"WDI", "zoo", "corrplot", "car", "glmnet", "naniar", "e1071",
+"FactoMineR", "factoextra", "caret", "randomForest", "reshape2", "corrgram",
+"conflicted", "psych", "GGally", "VIM", "mice", "plotly", "shiny", "shinydashboard", "leaflet", "svglite"
+)
+
+install_if_missing <- function(pkgs) {
+  installed <- rownames(installed.packages())
+  to_install <- setdiff(pkgs, installed)
+  
+  if (length(to_install) > 0) {
+    # Installer corrgram avec dépôt spécifique
+    if ("corrgram" %in% to_install) {
+      install.packages("corrgram", repos = "http://cran.us.r-project.org")
+      to_install <- setdiff(to_install, "corrgram")
+    }
+    if (length(to_install) > 0) {
+      install.packages(to_install)
+    }
+  } else {
+    message("Tous les packages sont déjà installés.")
+  }
+}
+
+# Installer les packages manquants
+install_if_missing(packages)
+
+
+# Charger les packages dans l'ordre
+load_packages <- function(pkgs) {
+  invisible(lapply(pkgs, function(pkg) {
+    suppressPackageStartupMessages(
+      tryCatch(
+        library(pkg, character.only = TRUE),
+        error = function(e) message(sprintf("Erreur lors du chargement de %s : %s", pkg, e$message))
+      )
+    )
+  }))
+}
+
+load_packages(packages)
+
+# Configurer conflicted pour éviter les conflits plyr/dplyr
+library(conflicted)
+
+conflict_prefer("count", "dplyr")
+conflict_prefer("summarise", "dplyr")
+conflict_prefer("mutate", "dplyr")
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+conflict_prefer("rename", "dplyr")
+conflict_prefer("arrange", "dplyr")
+
+message("Packages installés, chargés et conflits réglés.")
+
+```
+
+# Résumé de l'étude
+
+La couverture vaccinale infantile moyenne en Afrique est passée de 0% en 1980 à presque 60% en 2024, mais reste inférieure au seuil de (95%) recommandé par l'OMS pour atteindre l'immunité collective. Pourtant, la santé des enfants africains est au cœur du développement durable et de la prospérité des nations.
+
+Notre analyse approfondie révèle que la couverture vaccinale en Afrique n’est pas uniquement une question de moyens, mais surtout celle de la capacité d’adaptation et d’innovation des systèmes locaux face aux réalités socio-économiques, démographiques et politiques.
+
+Ce rapport met en lumière les leviers essentiels pour renforcer efficacement la couverture vaccinale, en maximisant l’impact avec les ressources limitées disponibles.
+
+## Dynamisme adaptatif contre stabilité rigide
+
+La performance vaccinale en Afrique dépend plus de la capacité d’adaptation et de mobilisation dynamique que de la stabilité institutionnelle qui elle, est rigide. Les contextes « sous tension » favorisent innovation et efficacité, tandis que les institutions trop figées limitent le progrès.
+
+
+\vspace{5mm}
+```{r echo=FALSE, fig.align='center', out.width="90%"}
+knitr::include_graphics("medias/resultat.pdf")
+```
+\vspace{5mm}
+
+Le premier constat fort est que le développement socio-économique renforce la couverture vaccinale de +2,89 points (p = 2e-16). Pourquoi ? Parce que les infrastructures, ressources humaines qualifiées et logistique fiable sont des piliers d’un système vaccinal robuste. L’inclusion sociale qui constitue le pouvoir de l'équité, élève également la couverture de +1,79 point (p = 2e-16). Prioriser les populations marginalisées — femmes, ruraux, minorités — est un levier puissant pour briser les barrières d’accès, souvent plus déterminantes que les contraintes techniques.
+
+La structuration démographique consitue elle aussi un défi logistique majeur. Son effet négatif (-0,84 point, p \~ 0.08) modéré sur la couverture vaccinale semble lié aux populations jeunes, dispersées ou surchargées. Ces « zones difficiles » nécessitent des stratégies ciblées pour transformer la complexité démographique en opportunités.
+
+La gouvernance des pays constitue un paradoxe inquiétant. Plutôt que d'améliorer la couverture, une stabilité formelle semble plutôt la freiner (-2,37 points, p = 2e-4). Rigidité bureaucratique, complaisance ou déconnexion des besoins réels pourraient expliquer ce phénomène contre-intuitif. A l'inverse, en stimulant la réactivité du système vaccinal (+1,84 point, p \~ 0.007), et en favorisant priorisations et mécanismes d’urgence efficaces, les crises se révèlent être un véritable moteur d'innovation.
+
+## Que faire dès aujourd'hui ?
+
+Face à ces enseignements, trois leviers stratégiques complémentaires et à fort retour sur investissement, doivent orienter l’action.
+
+```{r echo=FALSE, out.width="100%"}
+knitr::include_graphics("medias/map.pdf")
+```
+
+-   Prioriser immédiatement l’optimisation géographique, gage d’impact rapide et massif dans les pays comme le Niger, Tchad, Burkina Faso, République Centrafricaine, Guinée, Burundi, Malawi, Rwanda, Sud Soudan, Éthiopie.
+
+-   Intensifier la formation et la mobilisation communautaire pour renforcer la confiance et lever les résistances culturelles en Guinée Équatoriale, au Sénégal, Niger, Gabon, Nigeria, Tanzanie, Comores, Madagascar, Éthiopie, Somalie.
+
+-   Développer la logistique mobile pour atteindre les populations isolées, avec des campagnes adaptées aux réalités locales (marchés, foires, zones en conflit) dans les pays du Niger, Tchad, Burkina Faso, Guinée, RCA, Burundi, Rwanda, Malawi, Sud Soudan, Éthiopie.
+
+En embrassant ces trois leviers, l’Unicef transforme son expertise logistique en un impact vaccinal accru, sans nécessiter d’investissements budgétaires majeurs. Ils offrent une feuille de route pragmatique pour accélérer la protection des enfants, sauver des millions de vies et faire progresser la couverture vaccinale vers l’objectif de 95 % recommandé par l’OMS.
+
+\newpage
+
+# Introduction
+
+La vaccination ; c'est le moyen radical qu’à trouver l’humanité de se protéger de son pire ennemi, la maladie. Dès leur naissance et jusqu’à un certain âge aux quatre coins du globe, les parents sont invités à faire progressivement vacciner leur enfant, contre plusieurs maladies infectieuses à l’aide de vaccins.
+
+L’Unicef fait partie des entités qui, en coordination avec l’Organisation Mondiale de la Santé, s’occupe de ces questions dans 190 pays à travers le monde. L’Afrique, ne faisant pas exception. Et aujourd’hui, une question se pose : comment optimiser l'impact et l’efficience des programmes de vaccination dans les régions africaines de l’Unicef en particulier ?
+
+Pour le savoir, nous procéderons progressivement en trois grandes étapes :
+
+-   à partir des données recueillies entre 1980 et 2024, faire l’état des lieux de la couverture vaccinale infantile de l’Afrique vis à vis du reste du monde ;
+-   essayer de comprendre les raisons socio économiques propres aux régions qui expliquent ces observations ;
+-   identifier, à travers des simulations pertinentes, les leviers qui permettront de faire plus avec peu de moyens.
+
+# Méthodologie de l'étude
+
+## Données fournies
+
+Pour nous aider à comprendre les tendances de la couverture vaccinale dans les régions Afrique de l'Unicef, nous avons reçu la base de données Wuenic. Elle prend la forme d'un fichier excel, contenant 17 feuilles distinctes. 16 d'entre elles présentent le pourcentage d'immunisation de 16 vaccins différents, par pays, années après années. La dernière quant à elle, aggrège les données de couverture vaccinale, par région Unicef. Le tout, de 1980 à 2024.
+
+## Construction de notre base de données de travail
+
+La première étape de notre travail a été de réaliser l'extraction du fichier, pour constituer nos différentes bases de travail :
+
+```{r Dataset, message=FALSE, warning=FALSE, include=FALSE}
+
+# O0. Extraire les données utiles des feuilles de la base de données wuenic24 ----
+
+# a. Commencer par identifier toutes les feuilles présentes
+sheets <- getSheetNames("data/raw/data_wuenic.xlsx")
+
+# b. Récupérer les feuilles avec les données sur les 16 vaccins
+vaccine <- sheets[sheets != "regional_global"]
+
+# c. Labeliser les différents vaccins
+vaccine_labels <- c(
+  # Associer à chaque code le nom du vaccin
+  "BCG"   = "Bacille Calmette-Guérin",
+  "DTP1"  = "Diphtérie-tétanos-coqueluche, Dose 1",
+  "DTP3"  = "Diphtérie-tétanos-coqueluche, Dose 3",
+  "POL3"  = "Antipoliomyélitique oral, Dose 3",
+  "IPV1"  = "Antipoliomyélitique inactivé, Dose 1",
+  "IPV2"  = "Antipoliomyélitique inactivé, Dose 2",
+  "HEPBB" = "Hépatite B, Dose de naissance",
+  "HEPB3" = "Hépatite B, Dose 3",
+  "HIB3"  = "Haemophilus influenzae type b, Dose 3",
+  "MCV1"  = "Rougeole, Dose 1", 
+  "MCV2"  = "Rougeole, Dose 2",
+  "RCV1"  = "Rubéole",
+  "ROTAC" = "Rotavirus",
+  "PCV3"  = "Pneumocoque",
+  "MENGA" = "Méningite A",
+  "YFV"   = "Fièvre jaune"
+)
+
+
+# O1. - Base de données de couverture vaccinale (data_vaccine_coverage) ----
+# Cette base de donnée présente la couverture vaccinale, par région Unicef, par vaccin et par an, de 1980 à 2024
+
+# a. Importation de la base
+data_vaccine_coverage <- read.xlsx("data/raw/data_wuenic.xlsx", sheet = "regional_global")
+
+# b. Nettoyage et traitement de données
+
+str(data_vaccine_coverage)
+head(data_vaccine_coverage)
+
+# b.1. Renommer les variables pour uniformiser le nommage entre les différentes tables
+
+# Indiquer les nouveaux noms
+nom_variables_dvc <- c(
+  "region" = "unicef_region"
+)
+
+# Integrer les nouveaux noms
+names(data_vaccine_coverage) <- 
+  ifelse(names(data_vaccine_coverage) %in%
+           names(nom_variables_dvc),
+         nom_variables_dvc[names(data_vaccine_coverage)],
+         names(data_vaccine_coverage))
+
+str(data_vaccine_coverage) # Modification des noms de colonne : Succès
+
+
+# b.2. Les valeurs <100, <1,000 dans data_vaccine_coverage
+
+# Nous avons remarqué cette valeur, inhabituelle dans le dataset. Vérifions où elle se trouve.
+
+cols_with_lt_values <- sapply(data_vaccine_coverage, function(col) {
+  any(grepl("^<\\d{1,3}(,\\d{3})*$", col))
+})
+columns_to_check <- names(cols_with_lt_values)[cols_with_lt_values] # Uniquement la colonne vaccinated.
+
+# Combien de fois ces valeurs apparaissent-elles ?
+data_vaccine_coverage %>%
+  filter(!grepl("^[0-9]", vaccinated)) %>%
+  count(vaccinated, sort = TRUE) # 283 occurrences <100, 2 occurrences <1,000
+
+# Hypothèse : vaccinated <100 ou <1,000 == 0 dans cette base.
+
+# <100
+subset_rows_100 <- data_vaccine_coverage$vaccinated == "<100"
+
+result_100 <- all(
+  ((as.numeric(gsub(",", "", data_vaccine_coverage$unvaccinated[subset_rows_100])) -
+      as.numeric(gsub(",", "", data_vaccine_coverage$target[subset_rows_100]))) == 0) &
+    (data_vaccine_coverage$coverage[subset_rows_100] == 0)
+)
+
+print(result_100) # True
+
+# Nous pouvons donc remplacer dans la colonne vaccinated, <100 par 0.
+data_vaccine_coverage$vaccinated[data_vaccine_coverage$vaccinated == "<100"] <- "0"
+
+# Vérifions que la modification est bien faite.
+data_vaccine_coverage %>%
+  filter(!grepl("^[0-9]", vaccinated)) %>%
+  count(vaccinated, sort = TRUE) #<100 n'a plus été trouvé. Passons aux 02 <1,000 suivant.
+
+
+# <1,000
+subset_rows_1000 <- grepl("<\\s*1[,']?000", data_vaccine_coverage$vaccinated)
+
+result_1000 <- all(
+  ((as.numeric(gsub(",", "", data_vaccine_coverage$unvaccinated[subset_rows_1000])) -
+      as.numeric(gsub(",", "", data_vaccine_coverage$target[subset_rows_1000]))) == 0) &
+    (data_vaccine_coverage$coverage[subset_rows_1000] == 0)
+)
+
+print(result_1000) # False (La condition n'est pas respectée partout)
+
+# Vérifions les raisons de cette incohérence : partout où <1,000 != 0
+data_check_1000 <- data_vaccine_coverage[subset_rows_1000, ] %>%
+  mutate(
+    unvaccinated_num = as.numeric(gsub(",", "", unvaccinated)),
+    target_num = as.numeric(gsub(",", "", target)),
+    diff = target_num - unvaccinated_num ,
+    coverage_num = round((diff/target_num)*100, 1) ,  # recalculer la variable coverage
+    ok = (diff == 0 & coverage_num == 0)
+  )
+
+# Affiche les lignes qui ne respectent PAS la condition
+data_check_1000 %>% filter(!ok | is.na(ok)) # 1 occurrence ne respecte pas la condition
+
+
+# Remplacer <1,000 == 0 là où la condition est respectée.
+condition <- (data_vaccine_coverage$vaccinated == "<1,000") &
+  ((as.numeric(gsub(",", "", data_vaccine_coverage$unvaccinated)) -
+      as.numeric(gsub(",", "", data_vaccine_coverage$target))) == 0) &
+  (data_vaccine_coverage$coverage == 0)
+
+data_vaccine_coverage$vaccinated[condition] <- "0"
+
+#Vérifier si le changement est bien fait.
+data_vaccine_coverage %>%
+  filter(!grepl("^[0-9]", vaccinated)) %>%
+  count(vaccinated, sort = TRUE) #Plus que 1 <1,000 restant.
+
+# Pour ce dernier cas, la couverture arrondie == 0 parce que le nombre de vaccination
+# est trop faible. Ici, juste mettre la différence obtenue entre target et unvaccinated dans vaccinated.
+# Remplacer là où la condition n'est pas respectée.
+
+data_vaccine_coverage <- data_vaccine_coverage %>%
+  mutate(
+    vaccinated = ifelse(
+      vaccinated == "<1,000",
+      as.character(as.numeric(gsub(",", "", target)) - as.numeric(gsub(",", "", unvaccinated))),
+      vaccinated
+    )
+  )
+
+# Vérifier si le changement est bien fait.
+data_vaccine_coverage %>%
+  filter(!grepl("^[0-9]", vaccinated)) %>%
+  count(vaccinated, sort = TRUE) # Plus que valeurs au pattern <xxx.
+
+
+# b3. Enlever les (,) des chiffres dans les colonnes concernées
+
+str(data_vaccine_coverage)
+commas_to_clean <- c("vaccinated", "unvaccinated", "target")
+
+# Utiliser la fonction gsub pour supprimer les virgules des chiffres
+data_vaccine_coverage <- data_vaccine_coverage %>%
+  mutate(across(all_of(commas_to_clean), ~ gsub(",", "", .))
+  )
+
+any(is.na(data_vaccine_coverage)) # FALSE.
+str(data_vaccine_coverage) # Nettoyage effectué avec succès.
+
+
+# b4. Donner la bonne typologie des variables dans le dataframe
+data_vaccine_coverage <- data_vaccine_coverage %>%
+  mutate(
+    unicef_region = as.factor(unicef_region),
+    vaccine = as.factor(vaccine),
+    year = as.integer(year),
+    coverage = as.numeric(coverage),
+    vaccinated = as.numeric(vaccinated),
+    unvaccinated = as.numeric(unvaccinated),
+    target = as.numeric(target)
+  )
+
+# Vérifier la présence de NA dans le dataset.
+any(is.na(data_vaccine_coverage)) # FALSE
+summary(data_vaccine_coverage)
+
+
+# b5. Les incohérences
+
+# Quelques incohérences sont relevées plus haut avec <1000
+# Cherchons s'il y a des enregistrements où vaccinated != target - unvaccinated
+# Voyons voir quel impact cela a sur le coverage
+
+data_incoh <- data_vaccine_coverage %>%
+  rename(coverage_gived = coverage) %>%
+  mutate(
+    diff = target - unvaccinated,
+    coverage_calculed = round((diff/target)*100),
+    ok = (diff == vaccinated & coverage_calculed == coverage_gived)
+  )
+
+# Combien d'enregistrement ne respectent PAS la conditionde cohérence ?
+data_incoh %>% count(!ok | is.na(ok)) #962 enrégistrements
+
+# Essayons de comprendre ces incohérences
+data_incoh %>%
+  filter(!ok | is.na(ok)) %>%
+  select(coverage_gived, coverage_calculed, vaccinated, diff, unvaccinated, target) %>%
+  slice_head(n = 10) %>%
+  print() # Peut de différences entre coverage
+
+
+# Utiliser coverage uniquement pour refaire le test de cohérence.
+data_incoh <- data_vaccine_coverage %>%
+  rename(coverage_gived = coverage) %>%
+  mutate(
+    diff = target - unvaccinated,
+    coverage_calculed = round((diff/target)*100, 0),
+    coverage_check = abs(coverage_gived - coverage_calculed) <= 1  # tolérance de 1%
+  )
+
+data_incoh %>% count(!coverage_check | is.na(coverage_check)) #0 incohérence.
+# La variable d'intérêt reste cohérente malgré tout. Tout va bien.
+
+# Vérifier la présence de NA dans le dataset.
+any(is.na(data_vaccine_coverage)) # False
+#which(is.na(data_vaccine_coverage), arr.ind = TRUE)
+
+dim(data_vaccine_coverage) #4181 enregistrement pour 7 variables
+
+
+# c. Extraction et sauvegarde de la base de données.
+# Le dataset data_vaccine_coverage est propre et prêt à l'emploi.
+
+write.xlsx(
+  data_vaccine_coverage, 
+  "data/processed/data_vaccine_coverage.xlsx"
+)
+
+
+
+
+# O2. - Base de données le pourcentage d'immunisation (data_vaccine_immune) ---------------
+# Cette base de données présente le pourcentage d'immunisation par pays, par vaccin et par an
+
+# a. Importation des données & transformation
+
+# Transformer la structure de chaque feuille pour créer les variables year
+# et immune_percentage. Consolider toutes les infos de tous les 16 vaccins
+# dans une seule base de données.
+
+data_vaccine_immune_percentage <- map_df(vaccine, ~{
+  read.xlsx("data/raw/data_wuenic.xlsx", sheet = .x) %>%
+    pivot_longer(
+      cols = matches("^[0-9]{4}$"),
+      names_to = "year",
+      values_to = "immune_percentage"
+    ) %>%
+    mutate(
+      year = as.integer(year),
+      #source_sheet = .x
+    )
+})
+
+
+str(data_vaccine_immune_percentage)
+
+
+# b. Nettoyage et traitement des données
+
+any(is.na(data_vaccine_immune_percentage)) #True
+summary(data_vaccine_immune_percentage) # Variable immune_percentage
+
+head(data_vaccine_immune_percentage)
+
+# b.1 . Traitement des valeurs manquantes (NA)
+# Nous remarquons la présence de NA pour la variable immune_pourcentage.
+
+dim(data_vaccine_immune_percentage)
+sum(is.na(data_vaccine_immune_percentage$immune_percentage))
+#46156 valeurs manquantes sur 109665 enregistrements (~42%).
+
+
+# b.1.1 Explorer la répartition des valeurs manquantes (rajouter des visualisations)
+
+# par unicef_regions
+data_vaccine_immune_percentage %>%
+  filter(is.na(immune_percentage)) %>%
+  count(unicef_region, sort = TRUE) %>%
+  print(n = length(unique(data_vaccine_immune_percentage$unicef_region)))
+
+# par pays
+data_vaccine_immune_percentage %>%
+  filter(is.na(immune_percentage)) %>%
+  count(country, sort = TRUE) %>%
+  print(n = length(unique(data_vaccine_immune_percentage$country)))
+
+# par vaccin
+data_vaccine_immune_percentage %>%
+  filter(is.na(immune_percentage)) %>%
+  count(vaccine, sort = TRUE) %>%
+  print(n = length(unique(data_vaccine_immune_percentage$vaccine)))
+
+# par années
+data_vaccine_immune_percentage %>%
+  filter(is.na(immune_percentage)) %>%
+  count(year, sort = TRUE) %>%
+  print(n = length(unique(data_vaccine_immune_percentage$year))) # On remarque que plus les enregistrements sont anciens, plus il y a de valeurs manquantes
+
+
+# Visualisations des NA
+
+data_vaccine_immune_percentage %>%
+  filter(is.na(immune_percentage)) %>%
+  count(unicef_region, sort = TRUE) %>%
+  ggplot(aes(x = reorder(unicef_region, n), y = n)) +
+  geom_col(fill = "steelblue") +
+  coord_flip() +
+  labs(title = "Valeurs manquantes par région UNICEF", x = "Région", y = "Nombre de valeurs manquantes")
+
+
+data_vaccine_immune_percentage %>%
+  filter(is.na(immune_percentage)) %>%
+  count(country, sort = TRUE) %>%
+  slice_max(n, n = 20) %>%
+  ggplot(aes(x = reorder(country, n), y = n)) +
+  geom_col(fill = "tomato") +
+  coord_flip() +
+  labs(title = "Top 20 pays avec le plus de valeurs manquantes", x = "Pays", y = "Nombre de valeurs manquantes")
+
+
+data_vaccine_immune_percentage %>%
+  filter(is.na(immune_percentage)) %>%
+  count(vaccine, sort = TRUE) %>%
+  ggplot(aes(x = reorder(vaccine, n), y = n)) +
+  geom_col(fill = "darkorange") +
+  coord_flip() +
+  labs(title = "Valeurs manquantes par type de vaccin", x = "Vaccin", y = "Nombre de valeurs manquantes")
+
+
+data_vaccine_immune_percentage %>%
+  filter(is.na(immune_percentage)) %>%
+  count(year) %>%
+  ggplot(aes(x = year, y = n)) +
+  geom_line(color = "firebrick", size = 0.5) +
+  geom_point(color = "firebrick") +
+  labs(title = "Valeurs manquantes au fil du temps", x = "Année", y = "Nombre de valeurs manquantes")
+
+
+
+
+# b.1.2. Essayons de comprendre ce qui explique les NA dans le tableau
+
+# Nous posons l'hypothèse que les NA de la variable immune_percentage sont
+# dues en majorité à un défaut d'introduction du vaccin dans le pays.
+# Vérifions cette hypothèse.
+
+
+#     2.1. Constituer une base de donnée qui indique l'année d'introduction du vaccin dans chaque pays
+# Source : WHO (https://immunizationdata.who.int/global?topic=Vaccine-introduction&location=)
+
+data_vaccine_introduction <- read.xlsx("data/raw/data_vaccine_introduction.xlsx", sheet = "Data") %>%
+  slice(1:(n() - 1)) # garde toutes les lignes sauf la dernière (Métadonnée)
+
+data_vaccine_introduction <- data_vaccine_introduction %>%
+  mutate(
+    YEAR = as.integer(YEAR)
+  )
+
+summary(data_vaccine_introduction)
+sapply(data_vaccine_introduction, function(x) length(unique(x)))
+# Cette base contient les données d'introduction de 20 vaccins dans 194 pays sur 85 ans (1940 à 2024)
+# Aussi, la variable INTRO n'est pas binaire, et donne beaucoup de détails.
+
+#     2.2. Filtrer les informations de la base de données pour avoir juste ce qu'on veut
+#       a. Indiquer les nouveaux noms pour cette base
+
+nom_variables_dvi <- c(
+  "ISO_3_CODE" = "iso3",
+  "COUNTRYNAME" = "country",
+  "WHO_REGION" = "who_region",
+  "YEAR" = "year",
+  "DESCRIPTION" = "vaccine",
+  "INTRO" = "introduced"
+)
+
+names(data_vaccine_introduction) <- 
+  ifelse(names(data_vaccine_introduction) %in%
+           names(nom_variables_dvi),
+         nom_variables_dvi[names(data_vaccine_introduction)],
+         names(data_vaccine_introduction))
+
+str(data_vaccine_introduction)
+any(data_vaccine_introduction$introduced == "ND") #True
+sum(data_vaccine_introduction$introduced == "ND") #9 valeurs manquantes globalement
+
+#       b. Identifier les vaccins à extraire.
+# La base contient 11 vaccins d'intérêt sur 16.
+
+required_vaccine <- c(
+  # Associer à chaque code le nom du vaccin
+  "BCG"   = "Bacille Calmette-Guérin",
+  "DTP1"  = "Diphtérie-tétanos-coqueluche, Dose 1",
+  "DTP3"  = "Diphtérie-tétanos-coqueluche, Dose 3",
+  "POL3"  = "Antipoliomyélitique oral, Dose 3",
+  "IPV1"  = "Antipoliomyélitique inactivé, Dose 1", # Disponible, IPV (Inactivated polio vaccine)
+  "IPV2"  = "Antipoliomyélitique inactivé, Dose 2", # Disponible, IPV (Inactivated polio vaccine) 2nd dose
+  "HEPBB" = "Hépatite B, Dose de naissance", # Disponible, HepB birth dose
+  "HEPB3" = "Hépatite B, Dose 3", # Disponible, Hepatitis B vaccine
+  "HIB3"  = "Haemophilus influenzae type b, Dose 3", # Disponible, Hib (Haemophilus influenzae type B) vaccine
+  "MCV1"  = "Rougeole, Dose 1", 
+  "MCV2"  = "Rougeole, Dose 2", # Disponible, Measles-containing vaccine 2nd dose
+  "RCV1"  = "Rubéole", # Disponible, Rubella vaccine
+  "ROTAC" = "Rotavirus", # Disponible, Rotavirus vaccine
+  "PCV3"  = "Pneumocoque", # Disponible, PCV (Pneumococcal conjugate vaccine)
+  "MENGA" = "Méningite A", # Disponible, Meningococcal meningitis vaccines (all strains) (Approcimation, puisque nous n'avons pas la date spécifique)
+  "YFV"   = "Fièvre jaune" # Dispobile, YF (Yellow fever) vaccine
+)
+
+
+required_vaccine_code <- c(
+  "IPV (Inactivated polio vaccine)" = "IPV1",
+  "IPV (Inactivated polio vaccine) 2nd dose" = "IPV2",
+  "HepB birth dose" = "HEPBB",
+  "Hepatitis B vaccine" = "HEPB3",
+  "Hib (Haemophilus influenzae type B) vaccine" = "HIB3",
+  "Measles-containing vaccine 2nd dose" = "MCV2",
+  "Rubella vaccine" = "RCV1",
+  "Rotavirus vaccine" = "ROTAC",
+  "PCV (Pneumococcal conjugate vaccine)" = "PCV3",
+  "Meningococcal meningitis vaccines (all strains)" = "MENGA",
+  "YF (Yellow fever) vaccine" = "YFV"
+)
+
+no_available_vaccine <- c(
+  "BCG"   = "Bacille Calmette-Guérin",
+  "DTP1"  = "Diphtérie-tétanos-coqueluche, Dose 1",
+  "DTP3"  = "Diphtérie-tétanos-coqueluche, Dose 3",
+  "POL3"  = "Antipoliomyélitique oral, Dose 3",
+  "MCV1"  = "Rougeole, Dose 1"
+)
+
+vaccine_mapping <- tibble::tibble(
+  vaccine_raw = names(required_vaccine_code),
+  vaccine_code = unname(required_vaccine_code)
+)
+
+
+#     c. Réaliser l'extraction.
+
+data_vaccine_presence <- data_vaccine_introduction %>%
+  filter(
+    year >= 1980 & year <= 2024, # Infos de 1980 à 2024
+    vaccine %in% names(required_vaccine_code), # 11 vaccins d'intérêt présents sur 16
+    iso3 %in% unique(data_vaccine_immune_percentage$iso3) # Pays concernés par l'étude
+  ) %>%
+  left_join(vaccine_mapping, by = c("vaccine" = "vaccine_raw")) %>%
+  mutate(
+    vaccine = vaccine_code,                                # Renommer les vaccins selon le code de l'Unicef
+    introduced_binary = case_when(                         # Harmoniser les introduction des vaccins
+      introduced %in% c("ND") ~ NA,                        # données manquantes
+      introduced %in% c("No", "No (D)", "NR") ~ "No",      # non introduit ou non pertinent pour le pays (pays non concerné par ce vaccin)
+      TRUE ~ "Yes"                                         # tout le reste est considéré comme introduit d'une manière ou d'une autre
+    ),
+    introduced_coverage = case_when(                       # Décoder les niveaux de la couverture vaccinale
+      introduced == "Yes" ~ "National",
+      introduced %in% c("Yes (P)", "High risk") ~ "Partial",
+      introduced %in% c("Yes (R)", "Yes (A)", "Yes (S)", "Yes (OPV)") ~ "Risk-based",
+      introduced == "Yes (O)" ~ "Epidemic",
+      introduced %in% c("No", "No (D)") ~ "Not Introduced",
+      introduced %in% c("ND", "NR") ~ "Unknown",
+      TRUE ~ "Unknown"
+    )
+  ) %>%
+  select(-who_region, -vaccine_code)
+
+#     d. Vérifier les NA de data_vaccine_presence.
+
+str(data_vaccine_presence)
+any(is.na(data_vaccine_presence)) #True
+
+cols_with_na_dvp <- sapply(data_vaccine_presence, function(col) {
+  any(is.na(col))
+})
+columns_to_check_dvp <- names(cols_with_na_dvp)[cols_with_na_dvp]
+print(columns_to_check_dvp) # introduced_binary.
+
+sum(is.na(data_vaccine_presence$introduced_binary)) #3
+summary(data_vaccine_presence)
+
+length(unique(data_vaccine_presence$vaccine)) #11 Vaccins sur 16.
+
+# Les NA de la variable introduction_binary, au nombre de #3 de la base data_vaccination_prensence
+# sont dues à des données manquantes dans les données WHO. Rien à faire pour l'instant.
+
+# Le dataset data_vaccine_presence est propre et prêt à l'emploi.
+
+write.xlsx(
+  data_vaccine_presence, 
+  "data/processed/data_vaccine_presence.xlsx"
+)
+
+
+#       2.3. Hypothèse : les NA de immune_percentage dans data_vaccine_immune_percentage s'expliquent principalement par l'absence d’introduction du vaccin dans le pays et l’année concernée.
+
+#         a. Fusionner les deux bases de données (data_vaccine_presence et immune_percentage) en une seule pour le test
+
+data_vaccine_immune <- data_vaccine_immune_percentage %>%
+  left_join(
+    data_vaccine_presence %>%
+      select(iso3, year, vaccine, introduced_binary, introduced, introduced_coverage),
+    by = c("iso3", "year", "vaccine")
+  )
+
+# Beaucoup de NA seront générés, car la base data_vaccine_presence contient que 11 vaccins sur 16.
+
+str(data_vaccine_immune)
+head(data_vaccine_immune)
+summary(data_vaccine_immune)
+
+# Identifier les colones avec des NA dans data_vaccine_immune
+cols_with_na_dvim <- sapply(data_vaccine_immune, function(col) {
+  any(is.na(col))
+})
+columns_to_check_dvim <- names(cols_with_na_dvim)[cols_with_na_dvim]
+print(columns_to_check_dvim)
+
+# Compter les NA dans ces colonnes
+na_counts_dvim <- sapply(data_vaccine_immune[columns_to_check_dvim], function(col) {
+  sum(is.na(col))
+})
+print(na_counts_dvim)
+
+
+#         b. Analyser les NA dans introduced_binary, introduced, introduced_coverage
+# Rappel : Dans le cas actuel, cela veut juste dire qu'on ne sait pas à quel moment le vaccin a été introduit. (Pour les 5 vaccins)
+
+
+#         c. Analyser les NA dans immune_percentage vis à vis de introduced_binary
+
+sum(is.na(data_vaccine_immune$immune_percentage))
+# Toujours 46156 valeurs manquantes sur 109665 enregistrements (~42%).
+
+# Quelles sont les correspondances
+data_vaccine_immune %>%
+  mutate(na_presence = is.na(immune_percentage)) %>%
+  tabyl(na_presence, introduced_binary)
+
+# 6 cas de figure à traiter, pour un total de 157810 NA.
+data_vaccine_immune %>%
+  summarise(across(everything(), ~ sum(is.na(.)))) %>%
+  pivot_longer(cols = everything(), names_to = "variable", values_to = "nb_NA") %>%
+  arrange(desc(nb_NA))
+
+# A corriger au cas par cas, suivant 6 cas de figure, lors de la jointure finale.
+
+
+# Calculer une proportion pour interprétation claire
+
+data_vaccine_immune %>%
+  filter(is.na(immune_percentage)) %>%
+  count(introduced_binary) %>%
+  mutate(pourcentage = round(n / sum(n) * 100, 0)) # 55 % des NA est expliqué par la non introduction du vaccin dans le pays
+
+# Il est donc judicieux pour la variable immune_percentage, d'imputer 0% de couverture (immune_percentage = 0) quand introduced_binary == "No" (vaccin non introduce)
+# Laisser les NA tels quels dans les autres cas.
+
+
+# b.1.3. Imputation des NA dans data_vaccine_immune
+
+data_vaccine_immune <- data_vaccine_immune %>%
+  mutate(
+    immune_percentage = ifelse(is.na(immune_percentage) & introduced_binary == "No", 0, immune_percentage)
+  )
+
+sum(is.na(data_vaccine_immune$immune_percentage))
+# 20965 valeurs manquantes sur 109665 enregistrements (~19%).
+# Pour le reste, essayer de mettre à jour la base de donnée avec les années d'introduction des 05 vaccins restants.
+
+dim(data_vaccine_immune) #109665 enregistrement pour 9 variables
+
+# c. Identifier à quels vaccins appartiennent les 20 965 NA restants dans immune_percentage.
+
+# Etape 0 : Répartition des NA restants par vaccin
+data_vaccine_immune %>%
+  filter(is.na(immune_percentage)) %>%
+  count(vaccine, sort = TRUE) %>%
+  mutate(pourcentage = round(n / sum(n) * 100, 1))
+
+# Étape 1 : extraire les lignes avec NA restants
+na_vaccins <- data_vaccine_immune %>%
+  filter(is.na(immune_percentage))
+
+# Étape 2 : compter les NA par vaccin
+na_par_vaccin <- na_vaccins %>%
+  count(vaccine, sort = TRUE) %>%
+  mutate(pourcentage = round(n / sum(n) * 100, 1))
+
+# Étape 3 : identifier les vaccins requis selon les codes présents
+na_par_vaccin <- na_par_vaccin %>%
+  mutate(
+    est_dans_required = vaccine %in% names(no_available_vaccine)
+  )
+
+# Étape 4 : résumé clair
+na_par_vaccin_resume <- na_par_vaccin %>%
+  group_by(est_dans_required) %>%
+  summarise(
+    total_na = sum(n),
+    pourcentage_total = round(sum(pourcentage), 1),
+    .groups = "drop"
+  )
+
+# Afficher les résultats
+na_par_vaccin
+na_par_vaccin_resume #3543 valeurs manquantes supplémentaires font partie des 5 variables restantes.
+
+# Imputation de #3543 NA dans data_vaccine_immune qui font partie des 5 dont on ignore l'année d'introduction
+
+data_vaccine_immune <- data_vaccine_immune %>%
+  mutate(
+    immune_percentage = ifelse(is.na(immune_percentage) & vaccine %in% names(no_available_vaccine), 0, immune_percentage
+    )
+  )
+
+sum(is.na(data_vaccine_immune$immune_percentage))
+# 17422 valeurs manquantes sur 109665 enregistrements (~16%).
+# A gérer lors du test de cohérence dans la base de données finale, en croisant les données
+# avec data_coverage.
+
+
+# c. Donner la bonne typologie des variables dans le dataframe
+
+data_vaccine_immune <- data_vaccine_immune %>%
+  mutate(
+    across(where(is.character), as.factor),
+    year = as.integer(year),
+    immune_percentage = as.numeric(immune_percentage)
+  )
+
+
+# d. Extraction et sauvegarde de la base de données.
+# Le dataset data_vaccine_coverage est propre et prêt à l'emploi.
+
+write.xlsx(
+  data_vaccine_immune, 
+  "data/processed/data_vaccine_immune.xlsx"
+)
+
+
+
+# O3. - Jointures de bases de données (data_vaccine) ---------------
+
+# a. Nous assurer que les données sont bien groupées par unicef_region, vaccine, year dans data_vaccine_coverage.
+
+data_vaccine_coverage %>%
+  count(unicef_region, vaccine, year) %>%
+  filter(n > 1) # 0 ligne. Donc okay
+
+
+# b. Grouper les données dans data_vaccine_immune par unicef_region, vaccine, year
+
+str(data_vaccine_immune)
+str(data_vaccine_coverage)
+
+
+# b.1. Sélectionne les variables intéressantes pour l'aggrégation
+data_vaccine_prep <- data_vaccine_immune %>%
+  select(unicef_region, iso3, country, vaccine, year, immune_percentage)
+
+
+# b.2. Agrégation par region_unicef, vaccin, year
+
+# Calculer l'aggrégation globale mondiale
+global_agg <- data_vaccine_prep %>%
+  group_by(vaccine, year) %>%
+  summarise(
+    unicef_region = "Global",
+    immune_percentage = round(mean(immune_percentage, na.rm = TRUE)),
+    .groups = "drop"
+  )%>%
+  ungroup() %>%
+  mutate(
+    unicef_region = "Global",
+    immune_percentage = ifelse(is.na(immune_percentage), 0, immune_percentage)  # remplace les valeurs vides par NA
+  )
+
+
+# Faire l'aggrégation par région
+region_agg <- data_vaccine_prep %>%
+  group_by(unicef_region, vaccine, year) %>%
+  summarise(
+    immune_percentage = round(mean(immune_percentage, na.rm = TRUE)),
+    .groups = "drop"
+  )%>%
+  ungroup() %>%
+  mutate(
+    immune_percentage = ifelse(is.na(immune_percentage), 0, immune_percentage)  # remplace les valeurs vides par NA
+  )
+
+# Fusionner les deux
+data_vaccine_immune_agg <- bind_rows(region_agg, global_agg)
+
+
+str(data_vaccine_immune_agg) # 05 variales perdues, ne pouvant pas être aggrégées
+any(is.na(data_vaccine_immune_agg)) #False
+summary(data_vaccine_immune_agg)
+
+
+# b.3. Joignons à présent les bases data_coverage & data_vaccine_immune_agg.
+
+data_vaccine <- data_vaccine_coverage %>%
+  left_join(data_vaccine_immune_agg, by = c("unicef_region", "vaccine", "year")) %>%
+  select(unicef_region, vaccine, year, coverage, immune_percentage, target, vaccinated, unvaccinated)
+
+any(is.na(data_vaccine)) # False
+
+
+# c.1. Créer un vecteur continent, qui contient les pays africains uniquement.
+# Les régions unicef agrègent un ensemble de pays, de plusieurs continents communs.
+
+pays_region_unicef <- c(
+  # Afrique de l'Ouest et du Centre (WCAR)
+  "BEN" = "WCAR",
+  "BFA" = "WCAR",
+  "CPV" = "WCAR",
+  "CMR" = "WCAR",
+  "CAF" = "WCAR",
+  "TCD" = "WCAR",
+  "COG" = "WCAR",
+  "COD" = "WCAR",
+  "GNQ" = "WCAR",
+  "GAB" = "WCAR",
+  "GMB" = "WCAR",
+  "GHA" = "WCAR",
+  "GIN" = "WCAR",
+  "GNB" = "WCAR",
+  "CIV" = "WCAR",
+  "LBR" = "WCAR",
+  "MLI" = "WCAR",
+  "MRT" = "WCAR",
+  "NER" = "WCAR",
+  "NGA" = "WCAR",
+  "SEN" = "WCAR",
+  "SLE" = "WCAR",
+  "TGO" = "WCAR",
+  
+  # Afrique de l'Est et Australe (ESAR)
+  "AGO" = "ESAR",
+  "BWA" = "ESAR",
+  "COM" = "ESAR",
+  "DJI" = "ESAR",
+  "ERI" = "ESAR",
+  "ETH" = "ESAR",
+  "SWZ" = "ESAR",
+  "KEN" = "ESAR",
+  "LSO" = "ESAR",
+  "MDG" = "ESAR",
+  "MWI" = "ESAR",
+  "MUS" = "ESAR",
+  "MOZ" = "ESAR",
+  "NAM" = "ESAR",
+  "SYC" = "ESAR",
+  "SOM" = "ESAR",
+  "ZAF" = "ESAR",
+  "SSD" = "ESAR",
+  "SDN" = "ESAR",
+  "TZA" = "ESAR",
+  "UGA" = "ESAR",
+  "ZMB" = "ESAR",
+  "ZWE" = "ESAR",
+  
+  # Afrique du Nord (région MENA)
+  "DZA" = "MENA",
+  "EGY" = "MENA",
+  "LBY" = "MENA",
+  "MAR" = "MENA",
+  "TUN" = "MENA",
+  "ESH" = "MENA"
+  )
+
+unicef_region_label <- c(
+  "WCAR" = "Africa",
+  "ESAR" = "Africa",
+  "MENA" = "Afrasia"  # Afrique du Nord + Moyen-Orient
+)
+
+africa <- c(
+  "DZA", "AGO", "BEN", "BWA", "BFA", "BDI", "CPV", "CMR", "CAF", "TCD",
+  "COM", "COG", "CIV", "COD", "DJI", "EGY", "GNQ", "ERI", "SWZ", "ETH",
+  "GAB", "GMB", "GHA", "GIN", "GNB", "KEN", "LSO", "LBR", "LBY", "MDG",
+  "MWI", "MLI", "MRT", "MUS", "MAR", "MOZ", "NAM", "NER", "NGA", "RWA",
+  "STP", "SEN", "SYC", "SLE", "SOM", "ZAF", "SSD", "SDN", "TZA", "TGO",
+  "TUN", "UGA", "ZMB", "ZWE"
+)
+
+
+# c.2 . Créer un vecteur zone de priotité vaccinale pour l'Unicef
+# Le niveau de priorité dimiune, de 1 à 4.
+
+unicef_region_priority <- c(
+  "WCAR"  = 1,  # Afrique de l’Ouest et du Centre
+  "ROSA"  = 1,  # Asie du Sud (South Asia)
+  "ESAR"  = 2,  # Afrique de l’Est et Australe
+  "MENA"  = 3,  # Moyen-Orient et Afrique du Nord
+  "EAPR"  = 3,  # Asie de l’Est et Pacifique (East Asia & Pacific)
+  "LACR"  = 4,  # Amérique latine et Caraïbes
+  "ECAR"  = 4,  # Europe et Asie centrale (Europe & Central Asia)
+  "Global" = 0,
+  "Non-programme" = 0
+)
+
+unicef_region_priority_label <- c(
+  "Très prioritaire" = 1,
+  "Prioritaire" = 2,
+  "Modérée" = 3, 
+  "Faible" = 4,
+  "Inconnu" = 0
+)
+
+
+# c.3 . Créer une variable catégorielle des programmes de vaccination dans les pays.
+# Ce vecteur indique pour chaque vaccin, le programme vaccinal indicatif.
+# Diffile à prédire avec exactitude, car cela varie par pays, par année et région Unicef.
+
+vaccine_program <- c(
+  "BCG"   = "PEV de base",
+  "DTP1"  = "PEV de base",
+  "DTP3"  = "PEV de base",
+  "POL3"  = "PEV de base",
+  "IPV1"  = "PEV de base",
+  "IPV2"  = "PEV de base",
+  "HEPBB" = "Naissance",
+  "HEPB3" = "PEV de base",
+  "HIB3"  = "PEV de base",
+  "MCV1"  = "Rougeole",
+  "MCV2"  = "Rougeole",
+  "RCV1"  = "Rubéole",
+  "ROTAC" = "Rotavirus",
+  "PCV3"  = "Pneumocoque",
+  "MENGA" = "Méningite A",
+  "YFV"   = "Fièvre jaune"
+)
+
+# c.4. Intégrer les vecteurs pertinents dans la base de données.
+
+data_vaccine <- data_vaccine %>%
+  mutate(
+    vaccine_program = as.factor(vaccine_program[vaccine]),
+    vaccine_priority = as.factor(unicef_region_priority[unicef_region]),
+    priority_label = case_when(
+      vaccine_priority == 1 ~ "Très prioritaire",
+      vaccine_priority == 2 ~ "Prioritaire",
+      vaccine_priority == 3 ~ "Modérée",
+      vaccine_priority == 4 ~ "Faible",
+      TRUE ~ "Inconnu" # Pour les Global et les Non-Programmé
+    )
+  )
+
+dim(data_vaccine) #4181 enregistrement pour 11 variables
+any(is.na(data_vaccine)) #FALSE
+
+# Identifier les colones avec des NA dans data_vaccine_immune
+cwna_dv <- sapply(data_vaccine, function(col) {
+  any(is.na(col))
+})
+ctocheck_dv <- names(cwna_dv)[cwna_dv]
+print(ctocheck_dv)
+
+# Compter les NA dans ces colonnes
+na_counts_dvim <- sapply(data_vaccine[ctocheck_dv], function(col) {
+  sum(is.na(col))
+})
+print(na_counts_dvim)
+
+# d. Extraction et sauvegarde de la base de données.
+# Le dataset data_vaccine est propre et prêt à l'emploi.
+
+write.xlsx(
+  data_vaccine, 
+  "data/processed/data_vaccine.xlsx"
+)
+
+
+# O4. - Essai d'intégration de coverage à data_vaccine_immune --------
+# Abbérations potentielles : le taux régional n'est pas toujours représentatif d’un pays individuel,
+# surtout pour les pays extrêmes (les plus pauvres ou les plus performants).
+# data à manier avec prudence.
+
+
+# Suppose que j'ai un mapping des pays
+pays_des_regions <- data_vaccine_immune %>%
+  select(iso3, unicef_region) %>%
+  distinct()
+
+
+nb_pays_par_regions <- pays_des_regions %>%
+  group_by(unicef_region) %>%
+  summarise(nb_pays = n_distinct(iso3)) %>%
+  arrange(desc(nb_pays))
+
+
+# Étendre data_coverage au niveau pays
+data_vaccine_coverage_pays <- data_vaccine_coverage %>%
+  left_join(pays_des_regions, by = "unicef_region")
+
+# Fusion complète
+data_vaccine_coverage_pays <- data_vaccine_coverage_pays %>%
+  left_join(data_vaccine_immune, by = c("iso3", "vaccine", "year", "unicef_region"))  %>%
+mutate(
+    vaccine_program = as.factor(vaccine_program[vaccine]),
+    vaccine_priority = as.factor(unicef_region_priority[unicef_region]),
+    priority_label = case_when(
+      vaccine_priority == 1 ~ "Très prioritaire",
+      vaccine_priority == 2 ~ "Prioritaire",
+      vaccine_priority == 3 ~ "Modérée",
+      vaccine_priority == 4 ~ "Faible",
+      TRUE ~ "Inconnu" # Pour les Global et les Non-Programmé
+    )
+  )
+
+write.xlsx(
+  data_vaccine, 
+  "data/processed/data_vaccine_coverage_pays.xlsx"
+)
+
+
+# 05. - Jointures de bases de données (all_indicators) ---------
+
+# a. Indicateurs clés WDI pour expliquer la couverture vaccinale infantile en Afrique
+
+indicateurs_pertinents <- c(
+  
+  # 1. Accès au système de santé et qualité des serices
+  
+  "SH.XPD.CHEX.GD.ZS",    # Dépenses de santé (% du PIB)
+  "SH.XPD.GHED.CH.ZS",    # Dépenses de santé par habitant (% du PIB)
+  "SH.MED.BEDS.ZS",       # Lits d’hôpital pour 1.000 hab.
+  "SH.XPD.OOPC.CH.ZS",    # Dépenses de santé à charge du patient (%)
+  "SP.REG.BRTH.ZS",       # Enfants enregistrés à la naissance (%)
+  "SH.STA.BASS.ZS",       # Accès à une source d’eau de base (%)
+  "EG.ELC.ACCS.ZS",       # Accès à l’électricité (%)
+  
+  # 2. Santé infantile et maternelle
+  
+  "SP.DYN.IMRT.IN",       # Taux de mortalité infantile
+  "SP.DYN.CBRT.IN",       # Taux de natalité brut
+  "SP.UWT.TFRT",          # Taux de fécondité chez les adolescentes
+  "SP.DYN.TFRT.IN",       # Taux de fécondité (total)
+  "SH.MMR.RISK.ZS",       # Risque de mortalité maternelle
+  "SP.DYN.LE00.IN",       # Espérance de vie à la naissance
+  
+  # 3. Education et connaissance de la population (les adultes)
+  
+  "SE.PRM.ENRR",          # Taux de scolarisation dans le primaire
+  "SE.SEC.ENRR",          # Taux de scolarisation dans le secondaire
+  "SE.ADT.LITR.ZS",       # Alphabétisation des adultes (%)
+  "SE.PRM.CMPT.ZS",       # Taux d'achèvement du primaire
+  "SE.SEC.CMPT.LO.ZS",    # Taux d'achèvement du secondaire
+  "SE.XPD.TOTL.GD.ZS",    # Dépenses d’éducation (% du PIB)
+  
+  # 4. Situation économique
+  
+  "NY.GDP.PCAP.CD",       # PIB par habitant (USD courant)
+  "SL.UEM.TOTL.ZS",       # Taux de chômage (%)
+  "GC.REV.XGRT.GD.ZS",    # Revenus publics (% PIB)
+  "FP.CPI.TOTL.ZG",       # Inflation annuelle (%)
+  "BX.KLT.DINV.CD.WD",    # Investissements directs étrangers (USD)
+  "NY.GNS.ICTR.ZS",       # Taux d’épargne nationale
+  
+  # 5. Situation démographique et sociale
+  
+  "SP.POP.0014.TO.ZS",    # Population jeune (% 0-14 ans)
+  "SP.POP.1564.TO.ZS",    # Population active (%)
+  "SP.POP.65UP.TO.ZS",    # Population âgée (%)
+  "SP.POP.TOTL.FE.ZS",    # Femmes dans la population (%)
+  "SL.TLF.CACT.FE.ZS",    # Participation des femmes au marché du travail (%)
+  
+  # 6. Urbanisation et localisation
+  
+  "SP.RUR.TOTL.ZS",       # Population rurale (%)
+  "SP.URB.TOTL.IN.ZS",    # Taux d'urbanisation (%)
+  
+  # 7. Infrastructures routières et numériques
+  
+  "IS.RRS.TOTL.KM",       # Réseau ferré (km total)
+  "IS.ROD.PAVE.ZS",       # Routes pavées (% du total)
+  "IT.NET.USER.ZS",       # % d’utilisateurs d’Internet (indirectement lié à l’accès à l’info)
+  
+  # 8. Gouvernance et stabilité politique
+  
+  "SP.POP.TOTL",          # Taille de la population
+  "PV.EST",               # Indicateur de stabilité politique (Worldwide Governance Indicators)
+  "GE.EST"                # Efficacité du gouvernement (Worldwide Governance Indicators)
+)
+
+
+# b. Telecharger pour tous les pays de 1980 à 2024
+# data_wdi <- WDI(country = "all", 
+#                indicator = indicateurs_pertinents, 
+#                start = 1980, end = 2024)
+
+# View(data_wdi)
+
+
+# c. Extraction et sauvegarde de la base de données brute.
+
+# write.xlsx(
+#  data_wdi, 
+#  "data/raw/data_wdi.xlsx"
+#)
+
+# d. Renommer les indicateurs de la data_wdi.
+
+data_wdi <- read.xlsx("data/raw/data_wdi.xlsx",sheet = 1)
+
+noms_indicateurs <- c(
+  
+  #Paramètres
+  
+  "iso3c" = "iso3",
+  
+  # 1. Accès au système de santé et qualité des services
+  "SH.XPD.CHEX.GD.ZS"    = "Depenses_sante_PIB",
+  "SH.XPD.GHED.CH.ZS"    = "Depenses_sante_par_habitant",
+  "SH.MED.BEDS.ZS"       = "Lits_hospitaliers_pour_1000",
+  "SH.XPD.OOPC.CH.ZS"    = "Depenses_sante_directes_patient",
+  "SP.REG.BRTH.ZS"       = "Naissances_enregistrees",
+  "SH.STA.BASS.ZS"       = "Acces_eau_potable",
+  "EG.ELC.ACCS.ZS"       = "Acces_electricite",
+  
+  # 2. Santé infantile et maternelle
+  "SP.DYN.IMRT.IN"       = "Mortalite_infantile",
+  "SP.DYN.CBRT.IN"       = "Taux_natalite_brut",
+  "SP.UWT.TFRT"          = "Fertilite_adolescentes",
+  "SP.DYN.TFRT.IN"       = "Taux_fertilite_total",
+  "SH.MMR.RISK.ZS"       = "Risque_mortalite_maternelle",
+  "SP.DYN.LE00.IN"       = "Esperance_vie_naissance",
+  
+  # 3. Éducation et connaissances (adultes)
+  "SE.PRM.ENRR"          = "Scolarisation_primaire",
+  "SE.SEC.ENRR"          = "Scolarisation_secondaire",
+  "SE.ADT.LITR.ZS"       = "Alphabetisation_adultes",
+  "SE.PRM.CMPT.ZS"       = "Achèvement_primaire",
+  "SE.SEC.CMPT.LO.ZS"    = "Achèvement_secondaire",
+  "SE.XPD.TOTL.GD.ZS"    = "Depenses_education_PIB",
+  
+  # 4. Situation économique
+  "NY.GDP.PCAP.CD"       = "PIB_par_habitant",
+  "SL.UEM.TOTL.ZS"       = "Taux_chomage",
+  "GC.REV.XGRT.GD.ZS"    = "Revenus_publics_PIB",
+  "FP.CPI.TOTL.ZG"       = "Inflation_annuelle",
+  "BX.KLT.DINV.CD.WD"    = "IDE_entrant_USD",
+  "NY.GNS.ICTR.ZS"       = "Taux_epargne_nationale",
+  
+  # 5. Démographie et genre
+  "SP.POP.0014.TO.ZS"    = "Population_jeunes_0_14",
+  "SP.POP.1564.TO.ZS"    = "Population_active_15_64",
+  "SP.POP.65UP.TO.ZS"    = "Population_agee_65_plus",
+  "SP.POP.TOTL.FE.ZS"    = "Part_femmes_population",
+  "SL.TLF.CACT.FE.ZS"    = "Participation_femmes_travail",
+  
+  # 6. Urbanisation et localisation
+  "SP.RUR.TOTL.ZS"       = "Part_population_rurale",
+  "SP.URB.TOTL.IN.ZS"    = "Taux_urbanisation",
+  
+  # 7. Infrastructures routières et numériques
+  "IS.RRS.TOTL.KM"       = "Réseau_ferre_km_total",
+  "IS.ROD.PAVE.ZS"       = "Routes_pavees_pourcent",
+  "IT.NET.USER.ZS"       = "Utilisateurs_Internet",
+  
+  # 8. Gouvernance et stabilité politique
+  "SP.POP.TOTL"          = "Population_totale",
+  "PV.EST"               = "Stabilite_politique",
+  "GE.EST"               = "Efficacite_gouvernement"
+)
+
+# Integration des nouveaux noms
+names(data_wdi) <- 
+  ifelse(names(data_wdi) %in%
+           names(noms_indicateurs),
+         noms_indicateurs[names(data_wdi)],
+         names(data_wdi))
+
+str(data_wdi)
+any(is.na(data_wdi)) #True
+
+
+# e. Trouvons où se trouvent les NA
+cols_with_na_data_wdi <- sapply(data_wdi, function(col) {
+  any(is.na(col))
+})
+columns_to_check_data_wdi <- names(cols_with_na_data_wdi)[cols_with_na_data_wdi]
+print(columns_to_check_data_wdi)
+
+# e.1. Voyons voir combien de na nous avons
+
+sum(is.na(data_wdi)) #175226 valeurs manquantes, dans 39 variables sur 42
+
+# e.2.   Aggréger les données de data_wdi suivant les régions unicef.
+#   2.1. Créer un vecteur avec les codes iso3 des pays par regions unicef
+
+unicef_regions_vector <- data_vaccine_immune_percentage %>%
+  select(iso3, unicef_region) %>%
+  distinct() %>%
+  arrange(unicef_region)
+
+# Voir un aperçu du vecteur
+head(unicef_regions_vector)
+any(is.na(unicef_regions_vector)) #False
+
+
+#   2.2. Fusionner data_wdi et le unicef_regions_vector
+
+colnames(data_wdi)
+
+data_vaccine_indicators <- data_wdi %>%
+  inner_join(
+    unicef_regions_vector,
+    by = "iso3"
+  )
+
+any(is.na(data_vaccine_indicators)) # True
+sum(is.na(data_vaccine_indicators)) # 111930 NA
+
+
+#   2.3. Imputation progressive des NA pour l'aggrégation
+#   Imputation simple des NA par interpolation linéaire par pays
+
+data_vaccine_indicators <- data_vaccine_indicators %>%
+  group_by(iso3) %>%
+  arrange(iso3, year) %>%
+  mutate(across(where(is.numeric), ~na.approx(., na.rm = FALSE))) %>%
+  ungroup()
+
+any(is.na(data_vaccine_indicators)) #True
+sum(is.na(data_vaccine_indicators)) # 90415 NA
+
+#   Imputation des NA par la moyenne pondérée par la population
+#   Calcul de la population totale par région (utile pour pondérer)
+pop_region <- data_vaccine_indicators %>%
+  group_by(unicef_region, year) %>%
+  summarise(Population_totale = sum(Population_totale, na.rm = TRUE), .groups = "drop")
+
+
+#   Moyenne pondérée pour les indicateurs qui sont des taux
+
+indicateurs_taux <- c(
+  "Depenses_sante_PIB",
+  "Depenses_sante_par_habitant",
+  "Depenses_sante_directes_patient",
+  "Naissances_enregistrees",
+  "Acces_eau_potable",
+  "Acces_electricite",
+  "Mortalite_infantile",
+  "Taux_natalite_brut",
+  "Fertilite_adolescentes",
+  "Taux_fertilite_total",
+  "Risque_mortalite_maternelle",
+  "Scolarisation_primaire",
+  "Scolarisation_secondaire",
+  "Alphabetisation_adultes",
+  "Achèvement_primaire",
+  "Achèvement_secondaire",
+  "Taux_chomage",
+  "Revenus_publics_PIB",
+  "Inflation_annuelle",
+  "Taux_epargne_nationale",
+  "Population_jeunes_0_14",
+  "Population_active_15_64",
+  "Population_agee_65_plus",
+  "Part_femmes_population",
+  "Participation_femmes_travail",
+  "Part_population_rurale",
+  "Taux_urbanisation",
+  "Routes_pavees_pourcent"
+)
+
+#   Calcul des taux moyens pondérés par région unicef
+taux_region <- data_vaccine_indicators %>%
+  select(iso3, year, unicef_region, Population_totale, all_of(indicateurs_taux)) %>%  # Garde Population_totale ici
+  pivot_longer(cols = all_of(indicateurs_taux), names_to = "indicateur", values_to = "valeur") %>%
+  group_by(unicef_region, year, indicateur) %>%
+  summarise(valeur_pond = weighted.mean(valeur, Population_totale, na.rm = TRUE), .groups = "drop") %>%
+  pivot_wider(names_from = indicateur, values_from = valeur_pond)%>%
+  mutate(across(where(is.numeric), ~ ifelse(is.nan(.), NA, .)))
+
+
+#  Compléter les indicateurs manquants
+#     Tous les noms de variables que tu voulais retrouver dans taux_region (hors variables non pondérées)
+indicateurs_attendus <- setdiff(unname(noms_indicateurs), c("iso3", "Population_totale"))  # retire les non taux
+
+#     Liste de colonnes présentes dans taux_region
+indicateurs_dans_taux_region <- names(taux_region)
+
+#     Voir ceux qui manquent
+indicateurs_manquants <- setdiff(indicateurs_attendus, indicateurs_dans_taux_region)
+
+#     Résultat
+indicateurs_manquants
+
+#     Aggrégation des 09 indicateurs restants
+region_indicateurs_manquants <- data_vaccine_indicators %>%
+  filter(!is.na(unicef_region)) %>%
+  group_by(unicef_region, year) %>%
+  summarise(across(all_of(indicateurs_manquants), ~mean(.x, na.rm = TRUE), .names = "{.col}"), .groups = "drop")
+
+#     Fusion avec taux_region
+taux_region <- taux_region %>%
+  left_join(region_indicateurs_manquants,
+            by = c("unicef_region", "year")) %>%
+  mutate(across(where(is.numeric), ~ ifelse(is.nan(.), NA, .)))
+
+
+unique(taux_region$unicef_region)
+
+#     Calculer la moyenne mondiale des indicateurs pour créer le unicef_region = "Global"
+
+taux_global <- data_vaccine_indicators %>%
+  select(iso3, year, unicef_region, Population_totale, all_of(indicateurs_taux)) %>%
+  pivot_longer(cols = all_of(indicateurs_taux), names_to = "indicateur", values_to = "valeur") %>%
+  group_by(year, indicateur) %>%
+  summarise(valeur_pond = weighted.mean(valeur, Population_totale, na.rm = TRUE), .groups = "drop") %>%
+  pivot_wider(names_from = indicateur, values_from = valeur_pond) %>%
+  mutate(
+    unicef_region = "Global"
+  ) %>%
+  select(unicef_region, everything())
+
+#     Aggrégation des 09 indicateurs restants
+global_indicateurs_manquants <- data_vaccine_indicators %>%
+  filter(!is.na(unicef_region)) %>%
+  group_by(year) %>%
+  summarise(across(all_of(indicateurs_manquants), ~mean(.x, na.rm = TRUE)), .groups = "drop") %>%
+  mutate(unicef_region = "Global") %>%
+  select(unicef_region, everything())
+
+
+#     Finaliser l'aggrégation mondiale
+taux_global <- taux_global %>%
+  left_join(global_indicateurs_manquants,
+            by = c("unicef_region", "year"))%>%
+  mutate(across(where(is.numeric), ~ ifelse(is.nan(.), NA, .)))
+
+
+#     Finaliser la combinaison des indicateurs par régions
+
+taux_region <- bind_rows(taux_region, taux_global) %>%
+  arrange(unicef_region, year) %>%
+  mutate(across(where(is.numeric), ~ ifelse(is.nan(.), NA, .)))  # Nettoie à nouveau au cas où
+
+
+# data_vaccine & taux_region
+
+str(data_vaccine)
+str(taux_region)
+
+# Aggréger le contenu de cette base par régions unicef et par année
+data_vaccine_region <- data_vaccine %>%
+  group_by(unicef_region, year) %>%
+  summarise(
+    regional_target = sum(target, na.rm = TRUE),
+    regional_coverage = round(sum(coverage * target, na.rm = TRUE) / regional_target),
+    regional_immune_percentage = round(sum(immune_percentage * target, na.rm = TRUE) / regional_target),
+    regional_vaccinated = sum(vaccinated, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+str(data_vaccine_region)
+str(taux_region)
+
+# Fusion avec taux_region (qui contient les autres indicateurs)
+all_indicators <- taux_region %>%
+  left_join(data_vaccine_region, by = c("unicef_region", "year"))
+
+
+any(is.na(all_indicators)) #True
+sum(is.na(all_indicators))
+
+
+# Stratégies pour gérer les valeurs manquantes (NA)
+
+# 1. ANALYSE EXPLORATOIRE DES NA
+
+# Visualiser les patterns de NA
+library(VIM)
+library(mice)
+library(dplyr)
+
+# Pattern des valeurs manquantes
+aggr(all_indicators, col=c('navyblue','red'), numbers=TRUE, sortVars=TRUE)
+
+# Matrice des valeurs manquantes
+md.pattern(all_indicators)
+
+# Pourcentage de NA par variable
+na_summary <- all_indicators %>%
+  summarise_all(~sum(is.na(.))/length(.) * 100) %>%
+  gather(variable, pct_na) %>%
+  arrange(desc(pct_na))
+
+print(na_summary)
+
+# 2. STRATÉGIES DE TRAITEMENT
+
+
+# A) SUPPRESSION
+
+# Suppression des variables avec >70% de NA
+variables_a_supprimer <- na_summary %>%
+  filter(pct_na > 70) %>%
+  pull(variable)
+
+df_clean1 <- all_indicators %>%
+  select(-all_of(variables_a_supprimer))
+
+# Suppression des lignes avec >50% de NA
+seuil_na_lignes <- 0.5
+
+# Calculer le pourcentage de NA par ligne
+pourcentage_na_par_ligne <- rowSums(is.na(df_clean1))/ncol(df_clean1)
+
+# Voir la distribution
+summary(pourcentage_na_par_ligne)
+hist(pourcentage_na_par_ligne, main="Distribution du % de NA par ligne")
+
+# Voir quelles lignes ont plus de 50% de NA
+lignes_problematiques <- which(pourcentage_na_par_ligne >= 0.5)
+print(paste("Lignes à supprimer:", paste(lignes_problematiques, collapse = ", ")))
+
+# Voir le contenu de ces lignes problématiques
+df_clean1[lignes_problematiques, ]
+
+# Nettoyer
+df_clean2 <- df_clean1[pourcentage_na_par_ligne < seuil_na_lignes, ]
+
+
+# B) IMPUTATION SIMPLE
+
+# Imputation par la médiane (variables numériques)
+df_median <- df_clean2 %>%
+  mutate_if(is.numeric, ~ifelse(is.na(.), median(., na.rm = TRUE), .))
+
+# Imputation par la moyenne par région
+df_region_mean <- df_clean2 %>%
+  group_by(unicef_region) %>%
+  mutate_if(is.numeric, ~ifelse(is.na(.), mean(., na.rm = TRUE), .)) %>%
+  ungroup()
+
+# C) IMPUTATION AVANCÉE AVEC MICE
+
+# Sélectionner les variables clés pour l'imputation
+variables_importantes <- c("year", "unicef_region", "Acces_eau_potable", 
+                           "Acces_electricite", "Achèvement_primaire", 
+                           "Mortalite_infantile", "Esperance_vie_naissance",
+                           "PIB_par_habitant", "Taux_urbanisation")
+
+df_mice_prep <- all_indicators %>%
+  select(all_of(variables_importantes))
+
+# Configuration MICE
+mice_config <- mice(df_mice_prep, method = 'pmm', m = 5, printFlag = FALSE)
+
+# Imputation
+df_mice_complete <- complete(mice_config)
+
+# D) IMPUTATION PAR INTERPOLATION TEMPORELLE
+
+# Pour les séries temporelles par pays
+df_interpolation <- all_indicators %>%
+  group_by(unicef_region) %>%
+  arrange(year) %>%
+  mutate_if(is.numeric, ~na.approx(., na.rm = FALSE, rule = 2)) %>%
+  ungroup()
+
+# 3. STRATÉGIES SPÉCIFIQUES PAR TYPE DE VARIABLE
+
+# Variables économiques (PIB, dépenses santé)
+# Imputation par régression basée sur des prédicteurs économiques
+impute_economic <- function(df) {
+  # Exemple pour PIB_par_habitant
+  if("PIB_par_habitant" %in% names(df) && any(is.na(df$PIB_par_habitant))) {
+    model_pib <- lm(PIB_par_habitant ~ Taux_urbanisation + Acces_electricite + 
+                      factor(unicef_region), data = df, na.action = na.exclude)
+    
+    df$PIB_par_habitant[is.na(df$PIB_par_habitant)] <- 
+      predict(model_pib, newdata = df[is.na(df$PIB_par_habitant), ])
+  }
+  return(df)
+}
+
+# Variables de santé
+# Imputation basée sur corrélations avec autres indicateurs de santé
+impute_health <- function(df) {
+  # Exemple pour Mortalite_infantile
+  if("Mortalite_infantile" %in% names(df) && any(is.na(df$Mortalite_infantile))) {
+    model_mortality <- lm(Mortalite_infantile ~ Esperance_vie_naissance + 
+                            Acces_eau_potable + PIB_par_habitant + 
+                            factor(unicef_region), data = df, na.action = na.exclude)
+    
+    df$Mortalite_infantile[is.na(df$Mortalite_infantile)] <- 
+      predict(model_mortality, newdata = df[is.na(df$Mortalite_infantile), ])
+  }
+  return(df)
+}
+
+# 4. ÉVALUATION DE LA QUALITÉ D'IMPUTATION
+
+# Fonction pour comparer avant/après imputation
+evaluate_imputation <- function(original, imputed, variable) {
+  original_stats <- summary(original[[variable]])
+  imputed_stats <- summary(imputed[[variable]])
+  
+  cat("Variable:", variable, "\n")
+  cat("Original:\n")
+  print(original_stats)
+  cat("Après imputation:\n")
+  print(imputed_stats)
+  cat("\n")
+}
+
+# 5. RECOMMANDATIONS PAR VARIABLE
+
+recommandations <- list(
+  # Variables avec beaucoup de NA - Considérer suppression
+  "Routes_pavees_pourcent" = "Supprimer (74% NA) ou imputer par moyenne régionale",
+  "Naissances_enregistrees" = "Imputer par régression (lié au développement)",
+  "Depenses_sante_*" = "Imputer par % PIB moyen régional",
+  
+  # Variables importantes - Imputation soignée
+  "Acces_eau_potable" = "MICE ou interpolation temporelle",
+  "Acces_electricite" = "Interpolation + régression sur urbanisation",
+  "Mortalite_infantile" = "Régression sur indicateurs santé/développement",
+  
+  # Variables contextuelles
+  "Stabilite_politique" = "Imputation par moyenne régionale sur 3 ans",
+  "Taux_chomage" = "Interpolation temporelle par pays"
+)
+
+# 6. PIPELINE COMPLET
+
+pipeline_na_management <- function(df) {
+  library(dplyr)
+  library(mice)
+  
+  cat("Étape 1: Analyse initiale des NA\n")
+  initial_na <- colSums(is.na(df))
+  cat("Variables avec le plus de NA:\n")
+  print(head(sort(initial_na, decreasing = TRUE), 10))
+  
+  # Étape 1: Supprimer variables avec >75% NA
+  na_prop <- colSums(is.na(df)) / nrow(df)
+  high_na_vars <- names(na_prop[na_prop > 0.75])
+  
+  if(length(high_na_vars) > 0) {
+    cat("\nSuppression des variables avec >75% NA:", paste(high_na_vars, collapse = ", "), "\n")
+    df <- df %>% select(-all_of(high_na_vars))
+  }
+  
+  # Étape 2: Supprimer lignes avec >60% de NA
+  row_na_prop <- rowSums(is.na(df)) / ncol(df)
+  rows_to_keep <- row_na_prop <= 0.6
+  cat("Suppression de", sum(!rows_to_keep), "lignes avec >60% NA\n")
+  df <- df[rows_to_keep, ]
+  
+  # Étape 3: Imputation par médiane/mode par région (version corrigée)
+  cat("\nÉtape 3: Imputation par région\n")
+  
+  # Identifier les colonnes numériques (exclure les colonnes de groupage)
+  numeric_cols <- df %>% 
+    select(-unicef_region, -year) %>% 
+    select_if(is.numeric) %>% 
+    names()
+  
+  # Imputation par région avec across() au lieu de mutate_if()
+  df <- df %>%
+    group_by(unicef_region) %>%
+    mutate(across(all_of(numeric_cols), ~ifelse(is.na(.), median(., na.rm = TRUE), .))) %>%
+    ungroup()
+  
+  # Étape 4: Imputation globale pour les NA restants
+  cat("Étape 4: Imputation finale\n")
+  remaining_na <- colSums(is.na(df))
+  vars_with_na <- names(remaining_na[remaining_na > 0])
+  
+  if(length(vars_with_na) > 0) {
+    cat("Variables avec NA restants:", paste(vars_with_na, collapse = ", "), "\n")
+    
+    # Imputation simple par médiane globale
+    df <- df %>%
+      mutate(across(all_of(vars_with_na), ~ifelse(is.na(.), median(., na.rm = TRUE), .)))
+  }
+  
+  return(df)
+}
+
+# VERSION ALTERNATIVE AVEC MICE (plus robuste)
+
+pipeline_mice_robust <- function(df) {
+  library(dplyr)
+  library(mice)
+  
+  # Préparation des données pour MICE
+  cat("Préparation pour MICE\n")
+  
+  # Supprimer variables avec trop de NA
+  na_prop <- colSums(is.na(df)) / nrow(df)
+  keep_vars <- names(na_prop[na_prop <= 0.7])  # Garder variables avec ≤70% NA
+  
+  df_mice <- df %>% select(all_of(keep_vars))
+  
+  # Créer des versions numériques des variables catégorielles
+  if("unicef_region" %in% names(df_mice)) {
+    df_mice$region_num <- as.numeric(as.factor(df_mice$unicef_region))
+  }
+  
+  # Sélectionner un sous-ensemble de variables pour éviter la singularité
+  key_vars <- c("year", "region_num", "Acces_eau_potable", "Acces_electricite", 
+                "Achèvement_primaire", "Mortalite_infantile", "PIB_par_habitant",
+                "Esperance_vie_naissance", "Taux_urbanisation")
+  
+  # Garder seulement les variables qui existent dans le dataset
+  key_vars <- key_vars[key_vars %in% names(df_mice)]
+  df_subset <- df_mice[, key_vars]
+  
+  # Imputation MICE avec paramètres robustes
+  cat("Lancement MICE\n")
+  tryCatch({
+    mice_imp <- mice(df_subset, 
+                     m = 3,           # 3 imputations
+                     method = 'pmm',  # Predictive mean matching
+                     seed = 123,
+                     printFlag = FALSE,
+                     maxit = 5)       # Maximum 5 itérations
+    
+    df_imputed <- complete(mice_imp, 1)
+    
+    # Remplacer dans le dataset original
+    for(var in names(df_imputed)) {
+      if(var %in% names(df) && var != "region_num") {
+        df[[var]][is.na(df[[var]])] <- df_imputed[[var]][is.na(df[[var]])]
+      }
+    }
+    
+  }, error = function(e) {
+    cat("Erreur MICE, utilisation imputation simple\n")
+    # Fallback: imputation par médiane
+    numeric_vars <- df %>% select_if(is.numeric) %>% names()
+    df[numeric_vars] <- lapply(df[numeric_vars], function(x) {
+      ifelse(is.na(x), median(x, na.rm = TRUE), x)
+    })
+  })
+  
+  return(df)
+}
+
+#Copie avant nettoyage des na
+all_indicators_brut <- all_indicators
+
+# Application du pipeline
+all_indicators <- pipeline_na_management(all_indicators)
+
+# Vérification finale
+cat("NA restants après traitement:")
+sum(is.na(all_indicators))
+
+
+# exporter la base de données pour la conserver
+write.xlsx(
+  all_indicators, 
+  "data/processed/all_indicators.xlsx"
+)
+
+
+# O6. Jointure avec la base de données abberande avec WDI brute (data_final) -----
+
+str(data_vaccine_coverage_pays)
+str(data_wdi)
+str(data_vaccine)
+
+# data_wdi est au niveau pays × année
+# data_vaccine_coverage_pays est au niveau pays × vaccin × année
+# La fusion se fera donc sur iso3 et year, en dupliquant les données socio-économiques par vaccin dans data_vaccine_coverage_pays
+
+absolute_abberante_data <- data_vaccine_coverage_pays %>%
+  left_join(data_wdi, by = c("iso3", "year"))
+
+any(is.na(absolute_abberante_data)) #True
+dim(absolute_abberante_data) # 90719    56
+sum(is.na(absolute_abberante_data)) # 1269444 NA sur 5080264 données. Soit environ 25 % de NA
+
+
+# Trouvons où se trouvent les NA
+cols_with_na_aad <- sapply(data_wdi, function(col) {
+  any(is.na(col))
+})
+columns_to_check_data_aad <- names(cols_with_na_aad)[cols_with_na_aad]
+print(columns_to_check_data_aad)
+
+
+# GESTION DES NA - APPROCHE PAS À PAS POUR DATASET AVEC STRUCTURE ORIGINALE
+
+library(dplyr)
+library(tidyr)
+library(VIM)
+
+# Dataset = absolute_abberante_data (garder structure exacte avec duplications)
+data <- absolute_abberante_data
+
+# ÉTAPE 1 : DIAGNOSTIC COMPLET DES NA
+
+cat("=== ÉTAPE 1 : DIAGNOSTIC DES NA ===\n")
+cat("Nombre total d'observations :", nrow(data), "\n")
+cat("Nombre de variables :", ncol(data), "\n\n")
+
+# Compter les NA par variable
+na_summary <- data %>%
+  summarise_all(~sum(is.na(.))) %>%
+  pivot_longer(everything(), names_to = "variable", values_to = "nb_na") %>%
+  mutate(
+    pct_na = round((nb_na / nrow(data)) * 100, 2),
+    categorie_na = case_when(
+      pct_na >= 80 ~ "Critique (>80%)",
+      pct_na >= 50 ~ "Très élevé (50-80%)",
+      pct_na >= 20 ~ "Élevé (20-50%)",
+      pct_na >= 5 ~ "Modéré (5-20%)",
+      pct_na > 0 ~ "Faible (0-5%)",
+      TRUE ~ "Aucun NA"
+    )
+  ) %>%
+  arrange(desc(pct_na))
+
+print("Variables avec le plus de NA :")
+print(head(na_summary, 20))
+
+# Résumé par catégorie
+cat("\nRépartition des variables par niveau de NA :\n")
+table_na <- table(na_summary$categorie_na)
+print(table_na)
+
+
+# ÉTAPE 2 : ANALYSER LES PATTERNS DE NA
+
+cat("\n=== ÉTAPE 2 : PATTERNS DES NA ===\n")
+
+# Variables avec plus de 80% de NA (candidats à suppression)
+variables_trop_na <- na_summary %>%
+  filter(pct_na >= 80) %>%
+  pull(variable)
+
+cat("Variables avec >80% NA (", length(variables_trop_na), "variables) :\n")
+print(variables_trop_na)
+
+# Analyser si certaines lignes ont beaucoup de NA
+# Compter NA par ligne sans mélanger les types de variables
+na_par_ligne <- data.frame(
+  nb_na_ligne = rowSums(is.na(data)),
+  iso3 = data$iso3,
+  country.x = data$country.x,
+  year = data$year,
+  vaccine = data$vaccine
+)
+
+summary_na_lignes <- summary(na_par_ligne$nb_na_ligne)
+cat("\nNombre de NA par ligne :\n")
+print(summary_na_lignes)
+
+
+# ÉTAPE 3 : DÉCISIONS STRATÉGIQUES
+
+cat("\n=== ÉTAPE 3 : STRATÉGIE DE TRAITEMENT ===\n")
+
+# RÈGLE 1: Supprimer variables avec >80% NA
+data_step1 <- data %>%
+  select(-all_of(variables_trop_na))
+
+cat("Variables supprimées (>80% NA) :", length(variables_trop_na), "\n")
+cat("Variables restantes :", ncol(data_step1), "\n\n")
+
+# RÈGLE 2: Identifier les variables par type pour imputation différenciée
+variables_identifiantes <- c("iso3", "country.x", "country.y", "iso2c", "year", 
+                             "unicef_region", "vaccine", "vaccine_program")
+
+variables_vaccination <- c("immune_percentage", "coverage", "vaccinated", 
+                           "unvaccinated", "target", "introduced_binary", 
+                           "introduced", "vaccine_priority")
+
+variables_demographie <- c("Population_totale", "Population_jeunes_0_14", 
+                           "Population_active_15_64", "Population_agee_65_plus", 
+                           "Part_femmes_population", "Taux_urbanisation", 
+                           "Part_population_rurale")
+
+variables_sante <- c("Depenses_sante_PIB", "Depenses_sante_par_habitant", 
+                     "Lits_hospitaliers_pour_1000", "Esperance_vie_naissance", 
+                     "Mortalite_infantile", "Risque_mortalite_maternelle")
+
+variables_education <- c("Scolarisation_primaire", "Scolarisation_secondaire", 
+                         "Alphabetisation_adultes", "Achèvement_primaire", 
+                         "Achèvement_secondaire", "Depenses_education_PIB")
+
+variables_economiques <- c("PIB_par_habitant", "Taux_chomage", "Revenus_publics_PIB", 
+                           "Inflation_annuelle", "IDE_entrant_USD", "Taux_epargne_nationale")
+
+variables_infrastructure <- c("Acces_eau_potable", "Acces_electricite", 
+                              "Routes_pavees_pourcent", "Utilisateurs_Internet", 
+                              "Réseau_ferre_km_total")
+
+# ÉTAPE 4 : IMPUTATION PAR GROUPES LOGIQUES
+
+cat("=== ÉTAPE 4 : IMPUTATION PROGRESSIVE ===\n")
+
+# Fonction d'imputation par groupe géographique et temporel
+imputer_par_contexte <- function(data, variables, methode = "mediane") {
+  
+  for(var in variables) {
+    if(var %in% names(data) && is.numeric(data[[var]])) {
+      
+      if(methode == "mediane") {
+        # Imputation par région et période
+        data <- data %>%
+          group_by(unicef_region) %>%
+          mutate(
+            !!var := ifelse(is.na(!!sym(var)), 
+                            median(!!sym(var), na.rm = TRUE), 
+                            !!sym(var))
+          ) %>%
+          ungroup()
+      }
+      
+      # Si encore des NA, utiliser médiane globale
+      mediane_globale <- median(data[[var]], na.rm = TRUE)
+      if(!is.na(mediane_globale)) {
+        data[[var]][is.na(data[[var]])] <- mediane_globale
+      }
+    }
+  }
+  return(data)
+}
+
+# Appliquer l'imputation étape par étape
+data_step2 <- data_step1
+
+# 1. Variables démographiques (les plus fiables)
+data_step2 <- imputer_par_contexte(data_step2, variables_demographie)
+cat("✓ Variables démographiques imputées\n")
+
+# 2. Variables de santé
+data_step2 <- imputer_par_contexte(data_step2, variables_sante)  
+cat("✓ Variables de santé imputées\n")
+
+# 3. Variables économiques
+data_step2 <- imputer_par_contexte(data_step2, variables_economiques)
+cat("✓ Variables économiques imputées\n")
+
+# 4. Variables d'éducation
+data_step2 <- imputer_par_contexte(data_step2, variables_education)
+cat("✓ Variables d'éducation imputées\n")
+
+# 5. Variables d'infrastructure (avec précaution)
+data_step2 <- imputer_par_contexte(data_step2, variables_infrastructure)
+cat("✓ Variables d'infrastructure imputées\n")
+
+# ÉTAPE 5 : VALIDATION ET VÉRIFICATION
+
+cat("\n=== ÉTAPE 5 : VALIDATION ===\n")
+
+# Vérifier les NA restants
+na_apres <- data_step2 %>%
+  summarise_all(~sum(is.na(.))) %>%
+  pivot_longer(everything(), names_to = "variable", values_to = "nb_na") %>%
+  filter(nb_na > 0) %>%
+  arrange(desc(nb_na))
+
+cat("Variables avec NA restants :\n")
+print(na_apres)
+
+# Comparer avant/après
+cat("\nComparaison avant/après :\n")
+cat("NA total avant :", sum(is.na(data)), "\n")
+cat("NA total après :", sum(is.na(data_step2)), "\n")
+cat("Réduction NA :", round((1 - sum(is.na(data_step2))/sum(is.na(data)))*100, 1), "%\n")
+
+
+# ÉTAPE 6 : DATASET FINAL NETTOYÉ
+
+# Sauvegarder le dataset nettoyé
+data_final <- data_step2
+
+# Supprimer les lignes avec trop de NA restants (optionnel)
+# data_final <- data_final %>%
+#   filter(rowSums(is.na(.)) <= 5)  # Garder lignes avec ≤5 NA
+
+cat("\n=== DATASET FINAL ===\n")
+cat("Observations :", nrow(data_final), "\n")
+cat("Variables :", ncol(data_final), "\n")
+cat("NA restants :", sum(is.na(data_final)), "\n")
+
+# Structure finale
+cat("\nStructure préservée :\n")
+cat("- Par pays-vaccin-année :", 
+    length(unique(paste(data_final$iso3, data_final$vaccine, data_final$year))), "\n")
+cat("- Pays uniques :", length(unique(data_final$iso3)), "\n")
+cat("- Vaccins :", length(unique(data_final$vaccine)), "\n")
+cat("- Années :", paste(range(data_final$year, na.rm=TRUE), collapse = "-"), "\n")
+
+
+# exporter la base de données pour la conserver
+write.xlsx(
+  data_final, 
+  "data/processed/data_final.xlsx"
+)
+
+# Petite remarque ---------
+
+# Dans la base de données all_indicators, les valeurs indiquées pour coverage & immune_percentage sont très différentes.
+# Cela suggère que l'immune_percentage est calculé de la façon suivante :
+# %immunisés ≈ Couverture vaccinale × Efficacité vaccinale
+
+
+
+# Le récap --------------
+
+# data_vaccine, pour la couverture vaccinale par region et par an
+# all_indicators, pour les indicateurs sociaux économiques par région et par an
+# data_final, pour toutes les données de la base de données
+
+```
+
+-   La couverture vaccinale par région Unicef, par vaccin et par an
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+dataset_name <- data_vaccine
+cat("Dimensions (lignes x colonnes) : ")
+print(dim(dataset_name))
+cat("Présence de valeurs manquantes : ")
+na_exists <- any(is.na(dataset_name))
+print(na_exists)
+# Si valeurs manquantes, afficher indices et total
+if (na_exists) {
+  cat("Nombre total de valeurs manquantes : ")
+  print(sum(is.na(dataset_name)))
+} else {
+  cat("Aucune valeur manquante détectée.")
+}
+
+```
+
+-   Les indicateurs sociaux économiques par région Unicef et par an, tous vaccins confondus
+
+```{r error=TRUE, message=FALSE, warning=FALSE, cache=TRUE, include=FALSE, results='markup'}
+dataset_name <- all_indicators
+cat("Dimensions (lignes x colonnes) : ")
+print(dim(dataset_name))
+cat("Présence de valeurs manquantes : ")
+na_exists <- any(is.na(dataset_name))
+print(na_exists)
+# Si valeurs manquantes, afficher indices et total
+if (na_exists) {
+  cat("Nombre total de valeurs manquantes : ")
+  print(sum(is.na(dataset_name)))
+} else {
+  cat("Aucune valeur manquante détectée.")
+}
+
+```
+
+-   Toutes les données de cette étude, par pays, par vaccin et par an
+
+```{r error=TRUE, message=FALSE, warning=FALSE, cache=TRUE, include=FALSE, results='markup'}
+dataset_name <- data_final
+cat("Dimensions (lignes x colonnes) : ")
+print(dim(dataset_name))
+cat("Présence de valeurs manquantes : ")
+na_exists <- any(is.na(dataset_name))
+print(na_exists)
+# Si valeurs manquantes, afficher indices et total
+if (na_exists) {
+  cat("Nombre total de valeurs manquantes : ")
+  print(sum(is.na(dataset_name)))
+} else {
+  cat("Aucune valeur manquante détectée.")
+}
+
+```
+
+L'étude s'articule autour de la couverture vaccinale infantile. Cette donnée nous est fournie à l'origine, par région Unicef, par années. Cette considération a été prise en compte dans la construction de notre base de travail, exécuté avec minutie autour d'une démarche rigoureuse de nettoyage, d'harmonisation et d'enrichissement des données.
+
+## Nettoyage des données
+
+### Le pattern \<x,xxx
+
+En construisant le dataset de la couverture vaccinale par régions Unicef, issue de la feuille regional_global du fichier fourni, nous avons remarqué des données numériques de type chr (charactères) après importation. Deux raisons principales ont expliqué cela :
+
+-   Des valeurs \<100, \<1,000 pour la vaiable vaccinated
+-   L'utilisation de séparateurs de milliers (,) dans les chiffres
+
+Les valeurs aberrantes (285 occurrences de "\<100" et "\<1,000"), elles ont été transformées en valeurs numériques cohérentes (par imputation de la valeur à 0) après vérification des règles de cohérence dans le dataset, et à une harmonisation des nomenclatures de variables (noms, types et valeurs).
+
+Pour le nettoyage des données, nous avons procédé à une standardisation systématique des formats numériques en supprimant les séparateurs de milliers (,).
+
+## Traitement des valeurs manquantes (NA)
+
+Afin d'assurer la qualité des analyses statistiques, nous avons mis en place un pipeline robuste de gestion des valeurs manquantes. Il commence par une analyse exploratoire des données incomplètes, supprime les éléments trop lacunaires, puis remplit les valeurs manquantes par des méthodes adaptées (moyenne régionale, interpolation temporelle par pays, modélisation) selon l'importance de la valeur manquante identifiée. Avec à chaque fois, un suivi rigoureux de la dimension du dataset et de la présence de valeurs manquantes. Pour les valeurs manquantes restantes dans les variables critiques, nous avons appliqué la méthode avancée (MICE) qui permet une estimation plus fine. Cette approche garantit la cohérence, limite les biais, et préserve un maximum d’information utile pour les analyses.
+
+### Exemple du pourcentage d'immunisation
+
+Après construction de la base de données des pourcentage d'immunisation par vaccins, par pays et par années, nous avons décelé 46156 valeurs manquantes sur 109665 valeurs (\~42%) de la variable immune_percentage. Alors, nous avons chercher à comprendre pourquoi, en observant la répartition des valeurs manquantes par vaccin, par région, et par année. Et nous avons remarqués, sans surprises, que le nombre de valeur manquantes diminue avec le temps.
+
+
+```{r echo=FALSE, fig.align='center', out.width="95%"}
+library(svglite)
+library(ggplot2)
+library(dplyr)
+
+# data_vaccine_immune_percentage %>%
+#   filter(is.na(immune_percentage)) %>%
+#   count(unicef_region, sort = TRUE) %>%
+#   ggplot(aes(x = reorder(unicef_region, n), y = n)) +
+#   geom_col(fill = "steelblue") +
+#   coord_flip() +
+#   labs(title = "Valeurs manquantes par région UNICEF", x = "Région", y = "Nombre de valeurs manquantes")
+# 
+# 
+# data_vaccine_immune_percentage %>%
+#   filter(is.na(immune_percentage)) %>%
+#   count(country, sort = TRUE) %>%
+#   slice_max(n, n = 20) %>%
+#   ggplot(aes(x = reorder(country, n), y = n)) +
+#   geom_col(fill = "tomato") +
+#   coord_flip() +
+#   labs(title = "Top 20 pays avec le plus de valeurs manquantes", x = "Pays", y = "Nombre de valeurs manquantes")
+# 
+# 
+# data_vaccine_immune_percentage %>%
+#   filter(is.na(immune_percentage)) %>%
+#   count(vaccine, sort = TRUE) %>%
+#   ggplot(aes(x = reorder(vaccine, n), y = n)) +
+#   geom_col(fill = "darkorange") +
+#   coord_flip() +
+#   labs(title = "Valeurs manquantes par type de vaccin", x = "Vaccin", y = "Nombre de valeurs manquantes")
+
+
+plot_missing <- data_vaccine_immune_percentage %>%
+  filter(is.na(immune_percentage)) %>%
+  count(year) %>%
+  ggplot(aes(x = year, y = n)) +
+  geom_line(color = "firebrick", size = 0.5) +
+  geom_point(color = "firebrick") +
+  labs(title = "Valeurs manquantes au fil du temps", x = "Année", y = "Nombre de valeurs manquantes") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5),
+    text = element_text(size = 12)
+  )
+
+print(plot_missing)
+
+# Export en SVG
+ggsave(
+  filename = "output/plots/valeurs_manquantes_immune_percentage.svg", # nom du fichier
+  plot = plot_missing,                 # graphique à sauvegarder
+  width = 8,                            # largeur (en pouces)
+  height = 6,                           # hauteur (en pouces)
+  units = "in",                         # unité
+  dpi = 300                             # résolution (utile pour PNG mais ici sans effet)
+)
+
+
+```
+
+
+Cela nous a permis de poser l'hypothèse suivante : la présence de valeurs manquantes dans le pourcentage d'immunisation par pays est due à un défaut d'introduction du vaccin dans le pays, l'année considérée. L'affirmative nous permettrait, de rapporter le pourcentage d'immunisation à 0 pour les années où elles ne sont pas présentes.
+
+En croisant donc notre base de données avec la base de donnée répertoriant l'introduction de 20 vaccins (dont 11 sont présents dans notre étude), mais aussi par déduction statistiques, nous avons conclus ce qui suit :
+
+-   55 % des NA sont expliqués par l’année d’introduction de 11 vaccins sur 16 (nous n'avons trouvé aucune information pertinente sur les 05 autres) ;
+-   9 % ne le sont pas (sans doute dues à des lacunes dans les données de couverture, malgré la disponibilité du vaccin).
+
+Suite à cette exploration des données, le nombre de valeurs manquante est passée de 46156 (\~42 %) à 17422 (\~16 %). Puis à 0, lors de l'aggrégation des valeurs manquantes par régions Unicef.
+
+### Les indicateurs sociaux-économiques
+
+Cette base présente, par région Unicef et par an, les données aggrégées issus des différentes bases constitués précédemment, couplée aux indicateurs sociaux du WDI.
+
+Nous avons appliqué une interpolation linéaire par pays par années, suivie d'une imputation par moyennes pondérées par la population pour les différents indicateurs socio-économiques (lors de leur aggrégation par régions), réduisant finalement le total des valeurs manquantes de 111930 à 2554, puis à 0 après suppression des variables à valeurs manquantes \> 70 %, des enregistrements à valeurs manquantes \>= 60 %, imputation avancée avec MICE, et imputations temporelles simples, adaptée selon la sensibilité des variables présentes.
+
+## Sources complémentaires
+
+A plusieurs reprises, nous avons utilisé des sources d'informations complémentaires, à des fins de vérifications simple, ou d'intégration d'informations pertinentes dans la base de travail. Ces informations complémentaires incluent :
+
+-   les données de l'OMS sur l'introduction des vaccins (194 pays, 85 années, 20 vaccins) pour contextualiser les absences de données observées pour les 16 vaccins de l'étude ;
+-   37 indicateurs socio-économiques de la Banque mondiale (WDI) agrégés par région Unicef avec pondération démographique.
+
+Cette méthodologie a permis de constituer plusieurs datasets propres de 4 181 observations pour les données vaccinales et d'un ensemble d'indicateurs régionaux couvrant la période 1980-2024, avec une couverture géographique complète des sept régions Unicef et une qualité de données significativement améliorée.
+
+## Packages et librairies
+
+L'environnement de développement a été configuré de manière systématique pour assurer la reproductibilité et la robustesse des analyses. La gestion des dépendances s'est appuyée sur un ensemble de 31 packages spécialisés, couvrant la manipulation de données, l'analyse statistique avancée, la visualisation géospatiale, l'analyse multivariée, ainsi que des utilisataires de conversion et d'exportation de médias. Une fonction automatisée d'installation a été implémentée pour vérifier et installer uniquement les packages manquants.
+
+La résolution des conflits entre packages a été systématiquement traitée via le package conflicted, avec une priorisation explicite des fonctions du tidyverse (count, summarise, mutate, filter, select, rename, arrange) sur celles de plyr pour éviter les ambiguïtés fonctionnelles courantes. Le chargement sécurisé des librairies a été automatisé par une fonction personnalisée intégrant la suppression des messages de démarrage et la gestion d'erreurs avec feedback d'information.
+
+Cette approche méthodologique nous a permis d'établir un environnement de travail stable et standardisé, éliminant les erreurs de compatibilité potentielles et garantissant la cohérence des analyses sur l'ensemble du projet.
+
+\newpage
+
+# Un peu d’histoire
+
+> *Depuis le laboratoire jusqu’à lui, le vaccin avait effectué un long voyage, fait de science, de logistique, de décisions politiques, et d’engagement humain. Un voyage répété des millions de fois, dans l’espoir qu’un jour, cette maladie n’existe plus nulle part.*
+
+## Le vaccin
+
+Le vaccin a été créé pour prévenir des maladies graves en apprenant au corps à se défendre sans tomber malade. Depuis les travaux pionniers d’Edward Jenner contre la variole en 1796 , la vaccination a sauvé des millions de vies. Aujourd’hui, il existe plus de 30 vaccins utilisés couramment, couvrant des maladies comme la rougeole, la tuberculose ou la polio. Avant l’âge d’un an, un enfant reçoit en moyenne 8 à 10 vaccins essentiels, dont le BCG, le DTP (diphtérie, tétanos, coqueluche), l’hépatite B, la polio, la rougeole, la rubéole, la fièvre jaune et le pneumocoque.
+
+\vspace{5mm}
+```{r echo=FALSE, fig.align='center', out.width="95%"}
+knitr::include_graphics("medias/the-new-york-public-library-JIvURrBAh1U-unsplash.jpg")
+```
+\vspace{5mm}
+
+Etre guéri signifie que l’organisme a développé une immunité, détectable par des tests sérologiques. Cette immunité dépend de l’âge, de la nutrition, du vaccin reçu et du bon respect du calendrier vaccinal. Se vacciner est crucial pour se protéger soi-même, protéger les autres, et empêcher les épidémies de maladies évitables.
+
+Cette étude de la couverture vaccinale dans les régions Afrique de l'Unicef, porte sur 16 vaccins essentiels. Ces 16 vaccins sont la base de toutes les analyses statistiques (voir section Méthodologie).
+
+## L’Unicef, acteur majeur de la vaccination depuis 1946
+
+Pour chaque enfants, l'Unicef achète plus de 2 milliards de doses de vaccins par an, principalement financées par des gouvernements donateurs et des partenaires comme le GAVI (l’Alliance du Vaccin), la Banque mondiale ou le Fonds mondial. Ensemble, ils planifient, financent, livrent et surveillent la vaccination à travers le monde.
+
+Présent dans plus de 100 pays, sa présence s’appuie sur des bureaux de pays, des partenariats avec les ministères de la santé, et des réseaux communautaires et des bureaux régionaux de gestion des interventions.
+
+L’Unicef n’administre pas directement les vaccins : il les livre aux autorités sanitaires nationales, qui organisent la vaccination via les centres de santé et les campagnes mobiles qui font l'objet de programmes de vaccination. Il assure aussi la chaîne du froid, la formation des agents de santé, la sensibilisation des familles, et le suivi des données. Le rôle de l'Unicef est donc logistique, stratégique et opérationnel, au service des gouvernements et des enfants.
+
+# Orientation stratégique de l'analyse
+
+Récapitulons : notre mandant consiste à proposer des orientations stratégiques à l'Unicef pour optimiser analyser la couverture vaccinale infantile. Et ces recommandations doivent s'appuyer sur l'analyse de la couverture vaccinale en Afrique.
+
+En suivant l'évolution des différentes variables d'intérêt au fur et à mesure de la préparation de notre base de travail, nous remarquons que : - la couverture vaccinale est cohérente uniquement lorsqu'elle est considérée du point de vue régional ; - la structure décisionnelle de l'Unicef, pour qui cette étude est justement réalisée, est organisée par régions ; - couverture vaccinale != efficacité vaccinale ;
+
+Au vue de cela, et après une analyse approfondue des risques opportunités liés aux choix possibles, nous réaliseront l'analyse descriptive de la couverture vaccinale sur une base régionale, au risque de : - perdre des informations au niveau local ; - généraliser les recommandations.
+
+Cette appréciation régionale sera ramenée au niveau local, au moment de faire des recommandations stratégiques, et identifier les pays prioritaires dans le plan d'action stratégique proposé à l'Unicef.
+
+\newpage
+
+# Analyse descriptive de la couverture vaccinale en Afrique
+
+L’Unicef divise le monde en plusieurs bureaux régionaux pour coordonner ses opérations. En Afrique, on distingue principalement deux bureaux régionaux qui couvrent le continent.
+
+-   (WCAR) pour l’Afrique de l’Ouest et du Centre
+-   (ESAR) pour l’Afrique de l’Est et Australe
+
+En effet selon l'organisation de l'Unicef, les cinq pays d'Afrique du Nord ne dépendent pas des bureaux régionaux d'Afrique. L'analyse descriptive de la couverture vaccin sera donc charnière sur ces deux régions. Dans tout le document, sauf précision contraire, l'Afrique désigne ces régions.
+
+```{r include=FALSE}
+str(data_vaccine)
+library(tidyverse)
+
+# Data : data_vaccine
+# 00. Extraire les données sur les régions afrique de l'Unicef
+data_vaccine <- read.xlsx("data/processed/data_vaccine.xlsx",sheet = 1)
+
+# a. Régions Afrique uniquement
+unicef_region_afrique <- c("WCAR", "ESAR")  # vecteur simple des codes régions
+
+data_vaccine_afrique <- data_vaccine %>%
+  filter(unicef_region %in% unicef_region_afrique)%>%
+  mutate(
+    unicef_region = as.factor(unicef_region),
+    unicef_region_label = case_when(
+    unicef_region == "ESAR" ~ "Afrique de l'Est et Australe",
+    unicef_region == "WCAR" ~ "Afrique de l'Ouest et Centrale",
+    TRUE ~ unicef_region  # garde tel quel si non reconnu
+  ))
+
+# Observer la base de données
+str(data_vaccine_afrique)
+summary(data_vaccine_afrique)
+
+
+# b. Régions Afrique et le reste du monde
+data_vaccine_afrique_monde <- data_vaccine %>%
+  mutate(unicef_region_label = case_when(
+    unicef_region == "ESAR" ~ "Afrique de l'Est et Australe",
+    unicef_region == "WCAR" ~ "Afrique de l'Ouest et Centrale",
+    unicef_region == "ECAR" ~ "Europe et Asie Centrale",
+    unicef_region == "MENA" ~ "Moyen-Orient et Afrique du Nord",
+    unicef_region == "ROSA"   ~ "Asie du Sud",
+    unicef_region == "EAPR" ~ "Asie de l'Est et Pacifique",
+    unicef_region == "LACR" ~ "Amérique Latine et Caraïbes",
+    unicef_region == "Global" ~ "Le Monde",
+    TRUE ~ unicef_region  # garde tel quel si non reconnu
+  ))
+
+
+# Observer la base de données
+str(data_vaccine_afrique_monde)
+summary(data_vaccine_afrique_monde)
+
+```
+
+## La couverture vaccinale en Afrique, de 1980 à 2024
+
+La couverture vaccinale désigne la proportion d’une population ciblée qui a reçu une ou plusieurs doses d’un vaccin spécifique, selon le calendrier vaccinal recommandé. En Afrique, cette couverture est passée de 0 à environ 42 % en 1990. Avant de chuter à nouveau à moins de 30 % au début des années 2000. Depuis les 20 dernières années, elle est en constante augmentation, sans effondrement majeur.
+
+
+```{r echo=FALSE, fig.align='center', message=FALSE, warning=FALSE, out.width="80%"}
+
+library(tidyverse)
+library(ggplot2)
+
+# 1. Calculer la couverture moyenne par année pour l'Afrique
+
+coverage_afrique_year <- data_vaccine_afrique %>%
+  group_by(year) %>%
+  summarise(
+    coverage_moyenne = mean(coverage, na.rm = TRUE),
+    n_observations = n(),
+    .groups = "drop"
+  )
+
+# 2. Vérifier les données
+# str(coverage_afrique_year)
+# head(coverage_afrique_year)
+
+# 3. Créer le graphique corrigé
+
+plot_afrique <- ggplot(coverage_afrique_year, aes(x = year, y = coverage_moyenne)) +
+  geom_line(color = "steelblue", size = 0.5) + 
+  geom_point(color = "steelblue", size = 0.5) +
+  labs(
+    title = "Évolution de la couverture vaccinale moyenne en Afrique (1980-2024)",
+    x = "Année",
+    y = "Couverture moyenne (%)"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5),
+    text = element_text(size = 12)
+  ) +
+  scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 20))
+
+# 4. Sauvegarder
+ggsave(
+  filename = "output/plots/courbe_couverture_moyenne_afrique.svg",
+  plot = plot_afrique,
+  width = 10,
+  height = 6,
+  units = "in"
+)
+
+#5. Autre méthode
+
+data_vaccine_afrique %>%
+  group_by(year) %>%
+  summarise(moyenne = mean(coverage, na.rm = TRUE)) %>%
+  plot(
+    type = "l",
+    main = "Évolution de la couverture moyenne",
+    xlab = "Année",
+    ylab = "Coverage (%)"
+  )
+
+```
+
+
+Cette tendance à l'augmentation de la couverture vaccinale depuis l'introduction des premiers vaccins s'observe aussi bien en Afrique, que dans les autres régions du monde. Avec des pics (à la hausse ou à la baisse) environ tous les 10 ans. La dernière en date, a eu lieu début 2020, correspondant sans doute à la période de riposte contre la COVID-19.
+
+Malgré cette augmentation globale incroyable, l'Afrique est resté au fil de l'histoire, la région ayant enrégistré les plus faibles taux de couverture, alors qu'elles sont classées prioritaires par l'Unicef. Dans les régions Afrique, selon les données fournies, cette couverture est restée en moyenne très insuffisante et inégalement répartie ces 45 dernières années. Avec une moyenne de 41% et une médiane de 49%, la couverture vaccinale reste largement insuffisante par rapport aux recommandations de l'OMS (généralement 90-95% pour atteindre l'immunité collective).
+
+```{r echo=FALSE, fig.align='center', message=FALSE, warning=FALSE, out.width="80%"}
+library(conflicted)
+library(tidyverse)
+library(ggplot2)
+
+conflicts_prefer(dplyr::summarize)
+
+plot_regions <- data_vaccine_afrique_monde %>%
+  filter(unicef_region %in% c("WCAR","Global","ESAR")) %>%
+  group_by(year, unicef_region) %>%
+  summarize(mean_coverage = mean(coverage, na.rm = TRUE)) %>%
+  ggplot(aes(x = year, y = mean_coverage, color = unicef_region)) +
+  geom_line(size = 0.5) +
+  labs(
+    title = "Évolution de la couverture vaccinale par région UNICEF",
+    x = "Année",
+    y = "Pourcentage d'immunité moyen (%)",
+    color = "Région UNICEF"
+  ) +
+  theme_minimal()
+
+# Export en SVG
+ggsave(
+  filename = "output/plots/couverture_vaccinale_regions.svg",
+  plot = plot_regions,
+  width = 8,
+  height = 6,
+  units = "in"
+)
+
+print(plot_regions)
+
+
+```
+
+```{r include=FALSE}
+library(dplyr)
+
+# 1. Filtrer les 10 dernières années
+last_10_years <- max(data_vaccine$year, na.rm = TRUE) - 9
+data_recent <- data_vaccine %>%
+  filter(year >= last_10_years)
+
+# 2. Ajouter les labels lisibles pour les régions UNICEF
+tdf_region_labels <- c(
+  "EAPR"  = "East Asia and Pacific",
+  "ECAR"  = "Europe and Central Asia",
+  "ESAR"  = "Eastern and Southern Africa",
+  "LACR"  = "Latin America and Caribbean",
+  "MENA"  = "Middle East and North Africa",
+  "ROSA"  = "South Asia",
+  "WCAR"   = "West and Central Africa",
+  "Global" = "Le Monde"
+)
+
+# 3. Calculer la moyenne de couverture par région (avec labels lisibles)
+mean_coverage_summary <- data_recent %>%
+  filter(!is.na(coverage), !is.na(unicef_region)) %>%
+  group_by(unicef_region) %>%
+  summarise(
+    moyenne_couverture = round(mean(coverage, na.rm = TRUE), 1)
+  ) %>%
+  mutate(
+    region_label = tdf_region_labels[as.character(unicef_region)]
+  ) %>%
+  arrange(desc(moyenne_couverture))
+
+# 4. Afficher les résultats
+print(mean_coverage_summary)
+
+```
+```{r include=FALSE}
+summary(data_vaccine_afrique$coverage)
+```
+```{r include=FALSE}
+
+library(dplyr)
+
+# 1. Filtrer l'année 2024
+data_2024 <- data_vaccine %>%
+  filter(year == 2024)
+
+# 2. Calculer la moyenne de couverture par région UNICEF pour 2024
+mean_coverage_2024 <- data_2024 %>%
+  mutate(unicef_region = as.factor(unicef_region)) %>%
+  group_by(unicef_region) %>%
+  summarise(
+    moyenne_couverture_2024 = round(mean(coverage, na.rm = TRUE))
+  ) %>%
+  arrange(desc(moyenne_couverture_2024))
+
+```
+```{r include=FALSE}
+summary(data_2024$coverage)
+```
+```{r echo=FALSE}
+library(dplyr)
+library(ggplot2)
+
+# Filtrer les données Afrique 2024
+data_2024_afrique <- data_2024 %>%
+  filter(unicef_region %in% unicef_region_afrique)
+
+# Histogramme
+plot_hist <- ggplot(data_2024_afrique, aes(x = coverage)) +
+  geom_histogram(bins = 20, fill = "steelblue", color = "black") +
+  facet_wrap(~ unicef_region) +
+  labs(
+    title = "Histogramme de la couverture vaccinale par région UNICEF en Afrique (2024)",
+    x = "Couverture vaccinale (%)",
+    y = "Nombre de pays"
+  ) +
+  theme_minimal(base_size = 10)
+
+# Boxplot
+plot_box <- ggplot(data_2024_afrique, aes(x = unicef_region, y = coverage)) +
+  geom_boxplot(fill = "orange", color = "black") +
+  labs(
+    title = "Boxplot de la couverture vaccinale par région UNICEF en Afrique (2024)",
+    x = "Région UNICEF",
+    y = "Couverture vaccinale (%)"
+  ) +
+  theme_minimal(base_size = 10) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Export des deux graphiques en SVG
+ggsave(
+  filename = "output/plots/histogramme_couverture_afrique_2024.svg",
+  plot = plot_hist,
+  width = 8,
+  height = 6,
+  units = "in"
+)
+
+ggsave(
+  filename = "output/plots/boxplot_couverture_afrique_2024.svg",
+  plot = plot_box,
+  width = 8,
+  height = 6,
+  units = "in"
+)
+
+```
+
+Les 10 dernières années, la couverture vaccinale est restée très faible dans les régions Afrique. Aujourd'hui, en 2024, elle la couverture vaccinale est environ de 60 % en Afrique, contre 72 % dans le reste du monde. Le constat est clair : avec des couvertures maximales supérieures à 87 % dans certaines régions du monde, l'Afrique est encore loin derrière dans les seuils de recommandation de l'Unicef.
+
+```{r echo=FALSE, fig.align='center', message=FALSE, warning=FALSE, out.width="80%"}
+print(plot_box)
+
+```
+
+
+La région (WCAR) West and Central Africa présente la plus grande vulnerabilité sur les questions liées à la couverture vaccine. Pour ce qui est des programmes de vaccination, chacun suit son cours, selon son année d'introduction, les vaccins qu'il contient et sa spécificité.
+
+```{r echo=FALSE, fig.align='center', message=FALSE, warning=FALSE, out.width="80%"}
+print(plot_hist)
+```
+
+```{r include=FALSE}
+# Agréger les données par an par programme vaccinal
+data_program_year <- data_vaccine_afrique %>%
+  group_by(year, vaccine_program) %>%
+  summarise(couv_moy = mean(coverage, na.rm = TRUE), .groups = "drop") %>%
+  ungroup()
+
+# Le tracé
+svg("output/plots/courbe_evolution_annuelle_coucerture_vaccinale_par_programme_vaccinal.svg", width = 1600, height = 1200)
+prog_plot <- ggplot(data_program_year, aes(x = year, y = couv_moy, color = vaccine_program)) +
+  geom_line(size = 0.5) +
+  labs(
+    title = "Évolution annuelle de la couverture vaccinale par programme",
+    x = "Année",
+    y = "Couverture moyenne (%)",
+    color = "Programme vaccinal"
+  ) +
+  theme_minimal() +
+  scale_color_brewer(palette = "Dark2") +
+  theme(
+    plot.title = element_text(face = "bold", size = 10, hjust = 0.5),
+    legend.text = element_text(size = 10),
+    legend.position = "bottom"
+  )
+dev.off()
+
+print(prog_plot)
+
+# Export en SVG
+ggsave(
+  filename = "output/plots/evolution_par_vaccins.svg",
+  plot = prog_plot,
+  width = 8,
+  height = 6,
+  units = "in"
+)
+```
+
+# Analyse contextuelle croisée
+
+Pour comprendre les tendances de la couverture vaccinale en Afrique, nous avons essayé de les correler avec d'autres facteurs pertinents. Le tout, en posant des hypothèses de recherche qui se prêtent à cette exploration des données.
+
+## Correlation entre la couverture vaccinale et programmes de vaccination
+
+Puisque l'administration d'un vaccin est réalisé par les systèmes de santé dans le cadre d'un calendrier vaccinal, il est possible que le programme vaccinal soit un point important de correlation avec la couverture vaccinale.
+
+Hypothèse 1 : Les tendances de la couverture vaccinale dépendent du nombre de vaccins dans les programmes de vaccination d'une année donnée.
+
+```{r include=FALSE}
+# data_vaccine_afrique
+
+# Estimer le nombre de vaccins par programme
+nb_vaccins_par_programme <- data_vaccine_afrique %>%
+  select(vaccine_program, vaccine) %>%
+  distinct() %>%
+  count(vaccine_program, name = "nb_vaccins") %>%
+  arrange(desc(nb_vaccins))  # Trie par ordre décroissant
+#print(nb_vaccins_par_programme)
+
+# Estimer la couverture vaccinale en afrique par programme
+coverage_per_program <- data_vaccine_afrique %>%
+  group_by(vaccine_program) %>%
+  summarise(coverage = round(mean(coverage, na.rm = TRUE)))%>%
+  arrange(desc(coverage))  # Trie par ordre décroissant
+#print(coverage_per_program)
+
+# Est-ce que le programme avec le plus de vaccins a toujours la meilleure couverture ?
+coverage_vaccine_program <- left_join(coverage_per_program, nb_vaccins_par_programme, by = "vaccine_program") %>%
+  arrange(desc(nb_vaccins))
+print(coverage_vaccine_program)
+
+```
+
+Nous pouvons remarquer, que le programme PEV de base avec 8 vaccins, montre effectivement une couverture vaccinale élevée, à 49 %. Mais le programme Naissance est celui qui performe le mieux, avec seulement 1 vaccin.
+
+
+```{r echo=FALSE, fig.align='center'}
+data_vaccine_program <- data_vaccine_afrique %>%
+  filter(!is.na(coverage), !is.na(vaccine_program)) %>% # Nettoyage
+  mutate(decade = (year %/% 10) * 10) %>%
+  group_by(unicef_region_label, vaccine_program, decade) %>%
+  summarise(coverage = round(mean(coverage, na.rm = TRUE)), .groups = "drop") %>%
+  arrange(vaccine_program, unicef_region_label, decade)
+
+ggplot(data_vaccine_program, aes(x = decade, y = coverage, color = vaccine_program)) +
+  geom_line(size = 0.5) +
+  geom_point(size = 0.8) +
+  facet_wrap(~ vaccine_program) +
+  labs(
+    title = "Évolution de la couverture vaccinale par programme (monde)",
+    x = "Décennie",
+    y = "Couverture moyenne (%)"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 10, face = "bold"),
+    strip.text = element_text(size = 9),
+    axis.text.x = element_text(angle = 90, hjust = 1),
+    legend.position = "none"
+  )
+```
+
+Les données indiquent donc que le nombre de vaccins dans un programme vaccinal n'a pas grande influence sur la couverture vaccinale. Un test de correlation entre le nombre de vaccins dans un programme et la couverture vaccinale, révèle une correlation positive faible (r = 0,22) et non significative (p = 0,097 \> 0,05).
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+
+# Correlation moyenne entre la couverture vaccinale et le nombre de vaccins dans les programmes
+# Mesurer dans le temps si plus un programme contient de vaccins, plus sa couverture moyenne est élevée (et si cette relation est significative)
+
+# str(data_vaccine_program)
+# str(nb_vaccins_par_programme)
+
+# Fusionner les deux bases de données
+data_vaccine_program_nombre_vaccin <- data_vaccine_program %>%
+  left_join(nb_vaccins_par_programme, by = "vaccine_program")
+
+# str(data_vaccine_program_nombre_vaccin)
+
+
+# Test de correlation 
+cor.test(data_vaccine_program_nombre_vaccin$nb_vaccins, data_vaccine_program_nombre_vaccin$coverage) #0.2161957
+# Pas assez de preuves pour affirmer qu'un programme avec plus de vaccins a systématiquement une couverture vaccinale plus élevée, même si la tendance existe.
+
+```
+
+```{r echo=FALSE, fig.align='center', out.width="80%"}
+coor_coverage_program <- ggplot(data_vaccine_program_nombre_vaccin, aes(x = nb_vaccins, y = coverage)) +
+  geom_point(alpha = 0.5, color = "darkgreen", size = 0.5) +
+  geom_smooth(method = "lm", se = TRUE, color = "blue") +
+  facet_wrap(~ decade) +
+  labs(
+    title = "Corrélation entre nombre de vaccins et couverture par programme (par décennie)",
+    x = "Nombre de vaccins dans le programme",
+    y = "Couverture moyenne (%)"
+  ) +
+  theme_minimal() +
+  theme(
+    strip.text = element_text(size = 9, face = "bold"),
+    plot.title = element_text(size = 10, face = "bold", hjust = 0.5),
+    legend.position = "bottom",
+    legend.title = element_text(size = 9),
+    legend.text = element_text(size = 8)
+  )
+
+print(coor_coverage_program)
+
+# Export en SVG
+ggsave(
+  filename = "output/plots/coorelation_vaccins_programme.svg",
+  plot = coor_coverage_program,
+  width = 8,
+  height = 6,
+  units = "in"
+)
+```
+
+```{r include=FALSE}
+# Réessayer, sur une base temporelle, la même analyse sur les tendances de la couverture vaccinale par programme vaccinal
+
+# Étape 1 : Préparer les données
+analyse_temporelle <- data_vaccine_afrique %>%
+  group_by(year, vaccine_program) %>%
+  summarise(
+    nb_vaccins = n_distinct(vaccine),
+    coverage = mean(coverage, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Étape 2 : Fonction pour calculer cor.test et extraire p-value et corrélation
+cor_test_par_annee <- function(analyse_temporelle) {
+  if(nrow(analyse_temporelle) < 3) {
+    return(tibble(correlation = NA_real_, p_value = NA_real_))
+  }
+  test <- cor.test(analyse_temporelle$nb_vaccins, analyse_temporelle$coverage)
+  tibble(correlation = test$estimate, p_value = test$p.value)
+}
+
+# Étape 3 : Appliquer par année avec purrr::map explicitement
+resultats <- analyse_temporelle %>%
+  group_by(year) %>%
+  nest() %>%
+  mutate(test = purrr::map(data, cor_test_par_annee)) %>%  # Spécifier purrr::map
+  unnest(test) %>%
+  select(year, correlation, p_value)
+
+# Afficher le résultat
+print(resultats)
+
+```
+
+L'analyse temporelle de cette correlation, le confirme : cette correlation non significative se confirme aussi bien de façon générale, que chaque année sur les 45 dernières années.
+
+
+```{r echo=FALSE}
+
+# Tracé la courbe d'évolution des résultats
+
+temp_corr_test <- ggplot(resultats, aes(x = year, y = correlation)) +
+  geom_line(color = "black") +
+  geom_point(aes(color = p_value < 0.05), size = 2) +
+  scale_color_manual(values = c("red", "green"), labels = c("Non significatif", "Significatif")) +
+  labs(
+    title = "Corrélation entre nb vaccins et couverture moyenne par année",
+    x = "Année",
+    y = "Coefficient de corrélation",
+    color = "Significativité (p < 0.05)"
+  ) +
+  theme_minimal() +
+  theme(
+    strip.text = element_text(size = 9, face = "bold"),
+    plot.title = element_text(size = 10, face = "bold", hjust = 0.5),
+    legend.position = "bottom",
+    legend.title = element_text(size = 9),
+    legend.text = element_text(size = 8)
+  )
+
+# Export en SVG
+ggsave(
+  filename = "output/plots/corr_test_temporel.svg",
+  plot = temp_corr_test,
+  width = 8,
+  height = 6,
+  units = "in"
+)
+
+print(temp_corr_test)
+
+```
+
+
+En l'état, nous n'avons pas assez de preuves pour affirmer qu'un programme avec plus de vaccins a systématiquement une couverture vaccinale plus élevée, même si la tendance existe.
+
+Conclusion : l'évolution de la courbe vaccinale est sans doute influencée par d'autres facteurs contextuels.
+
+## Analyse croisée multivariée avec des facteurs contextuels extraits de WDI
+
+Nous avons extrait de la base de données WDI, 37 indicateurs qui pourraient expliquer les tendances de la couverture vaccinal observées en Afrique.
+
+Hypothèse 2 : la couverture vaccinale serait-elle influencée par l’accès aux systèmes de santé performants ?
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+
+# Data : all_indicators
+# a. Extraire les indicateurs pour les régions afrique de l'unicef
+
+all_indicators <- read.xlsx("data/processed/all_indicators.xlsx",sheet = 1)
+
+# str(all_indicators)
+# summary(all_indicators)
+# dim(all_indicators) # 43 variables, 37 indicateurs jugés pertinents
+
+
+# Vecteur des régions unicef typiquement Afrique
+unicef_region_afrique_only <- c("WCAR", "ESAR")
+
+# Nouvelle base de travail concentrée sur les régions Afrique
+all_indicators_africa <- all_indicators %>%
+  filter(unicef_region %in% unicef_region_afrique_only)
+
+# str(all_indicators_africa)
+# dim(all_indicators_africa) # 43 variables, 41 indicateurs jugés pertinents
+
+
+# b. Analyse exploratoire des données (EDA) de all_indicators_africa.
+
+# summary(all_indicators_africa)
+
+# b.1. Exploration des valeurs manquantes dans all_indicators_africa
+
+vis_miss(all_indicators_africa %>% naniar::miss_var_summary() %>% 
+           arrange(desc(pct_miss)) %>%
+           select(variable) %>%
+           pull() %>%
+           {all_indicators_africa[., drop = FALSE]}
+) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 6)
+        )
+
+gg_miss_var(all_indicators_africa, show_pct = TRUE) +
+  labs(title = "Pourcentage de valeurs manquantes par variable") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 10, face = "bold"),
+    axis.text.x = element_text(angle = 90, hjust = 1),
+    legend.position = "none"
+  )
+
+sum(is.na(all_indicators_africa))  # Nombre de NA par variable
+
+
+# b.2. Distribution des variables
+
+all_indicators_africa %>%
+  reframe(across(
+    where(is.numeric),
+    \(x) c(moy = mean(x, na.rm = TRUE),
+           med = median(x, na.rm = TRUE),
+           sd = sd(x, na.rm = TRUE))
+  ))
+
+```
+
+### Sélection des variables pertinentes
+
+Pour identifier lesquels de ces indicateurs sont les plus pertinents, nous avons procédé à une réduction de dimension, par analyse exploratoire multivariée, et en utilisant des modèles de machine learning pour aider à la sélection des indicateurs les plus importants sur lesquels concentrer notre étude.
+
+#### Analyse exploratoire multivariée
+
+
+```{r eval=FALSE, include=FALSE}
+#  2.1. Boxplot pour détecter les variables extrêmes
+
+all_indicators_numeric_vars <- names(select(all_indicators_africa, where(is.numeric)))
+
+for (var in all_indicators_numeric_vars) {
+  p <- ggplot(all_indicators_africa, aes_string(y = var)) +
+    geom_boxplot(fill = "lightgreen") +
+    labs(title = paste("Boxplot de", var), y = var) +
+    theme_minimal()
+  print(p)
+}
+
+#   2.2. Créer un histogramme pour chaque variable numérique
+
+data_indics_africa <- all_indicators_africa %>% select(where(is.numeric))
+
+
+for (var in names(data_indics_africa)) {
+  p <- ggplot(all_indicators_africa, aes_string(x = var)) +
+    geom_histogram(bins = 30, fill = "skyblue", color = "black") +
+    labs(title = paste("Histogramme de", var), x = var, y = "Fréquence") +
+    theme_minimal()
+  print(p)
+}
+
+# Possible assymétrie des valeurs.
+
+# Confirmons cette asymétrie des données
+
+all_indicators_africa %>%
+  summarise(across(where(is.numeric),
+                   list(moy = mean,
+                        med = median,
+                        sd = sd,
+                        skew = ~e1071::skewness(., na.rm = TRUE)),
+                   .names = "{.col}_{.fn}"))
+
+# Transforme les données au format long
+all_indicators_africa_pivot_long <- all_indicators_africa %>%
+  select(where(is.numeric)) %>%
+  pivot_longer(cols = everything(), names_to = "variable", values_to = "valeur")
+
+
+# Histogrammes par variable
+ggplot(all_indicators_africa_pivot_long, aes(x = valeur)) +
+  geom_histogram(bins = 30, fill = "#4e79a7", color = "white") +
+  facet_wrap(~ variable, scales = "free") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 10, face = "bold"),
+    axis.text.x = element_text(angle = 90, hjust = 1),
+    legend.position = "none"
+  )
+
+```
+
+L'exploration des données révèle une distribution asymétrique de la plupart des indicateurs. Elles tendent vers la gauche ou vers la droite.
+
+```{r include=FALSE}
+
+# c. Correlations des variables avec la couverture vaccinale
+
+# c.1. Sélectionner les colonnes numériques
+indicators_africa <- all_indicators_africa %>%
+  select(where(is.numeric)) %>%
+  mutate(across(everything(), ~ ifelse(is.na(.), mean(., na.rm=TRUE), .)))
+
+
+# c.2. Calcul de la matrice de corrélation
+cor_matrix <- cor(indicators_africa, use = "pairwise.complete.obs")
+
+# Affichage de la matrice de correlation avec corplot
+
+corrplot(cor_matrix, method = "color", tl.cex = 0.7)
+
+
+# Affichage de la matrice de correlation avec corgram
+
+corrgram(indicators_africa,
+         order=TRUE,
+         lower.panel=panel.shade,
+         upper.panel=panel.pie,
+         text.panel=panel.txt)
+
+
+```
+```{r include=FALSE}
+
+# c.3. Corrélation entre indicateurs et couverture vaccinale
+
+str(indicators_africa)
+cor_coverage <- sapply(indicators_africa, function(x) cor(indicators_africa$regional_coverage, x, use = "complete.obs"))
+print(cor_coverage)
+
+# Afficher les données
+cor_coverage_sorted <- sort(cor_coverage, decreasing = TRUE)
+print(round(cor_coverage_sorted, 3))
+
+# Visualisation des différentes correlations des indicateurs avec la couverture vaccinale
+
+cor_data <- data.frame(
+  variable = names(cor_coverage_sorted),
+  correlation = as.numeric(cor_coverage_sorted)
+)
+
+str(cor_data)
+
+labels_cor_data <- c(
+  "regional_coverage"               = "Couverture régionale",
+  "regional_immune_percentage"     = "Pourcentage immunisé régional",
+  "regional_vaccinated"             = "Nombre vacciné régional",
+  "year"                           = "Année",
+  "Achèvement_secondaire"           = "Achèvement secondaire",
+  "Scolarisation_secondaire"        = "Scolarisation secondaire",
+  "Population_active_15_64"         = "Population active (15-64 ans)",
+  "regional_target"                 = "Cible régionale",
+  "PIB_par_habitant"               = "PIB par habitant (USD)",
+  "Esperance_vie_naissance"        = "Espérance de vie à la naissance",
+  "Achèvement_primaire"            = "Achèvement primaire",
+  "IDE_entrant_USD"                = "IDE entrants (USD)",
+  "Taux_epargne_nationale"          = "Taux d’épargne nationale",
+  "Scolarisation_primaire"          = "Scolarisation primaire",
+  "Utilisateurs_Internet"          = "Utilisateurs Internet (%)",
+  "Alphabetisation_adultes"        = "Alphabétisation adultes (%)",
+  "Acces_eau_potable"              = "Accès à l’eau potable (%)",
+  "Taux_urbanisation"              = "Taux d’urbanisation (%)",
+  "Réseau_ferre_km_total"          = "Réseau ferré (km total)",
+  "Depenses_education_PIB"         = "Dépenses éducation (% PIB)",
+  "Acces_electricite"              = "Accès à l’électricité (%)",
+  "Taux_chomage"                  = "Taux de chômage (%)",
+  "Depenses_sante_PIB"             = "Dépenses santé (% PIB)",
+  "Depenses_sante_par_habitant"    = "Dépenses santé par habitant (% PIB)",
+  "Routes_pavees_pourcent"         = "Routes pavées (%)",
+  "Revenus_publics_PIB"            = "Revenus publics (% PIB)",
+  "Naissances_enregistrees"        = "Naissances enregistrées (%)",
+  "Part_femmes_population"         = "Part des femmes dans la population (%)",
+  "Inflation_annuelle"             = "Inflation annuelle (%)",
+  "Efficacite_gouvernement"        = "Efficacité du gouvernement",
+  "Population_agee_65_plus"        = "Population âgée (65+ %)",
+  "Fertilite_adolescentes"         = "Fertilité adolescentes (%)",
+  "Depenses_sante_directes_patient"= "Dépenses santé à charge patient (%)",
+  "Stabilite_politique"            = "Stabilité politique",
+  "Part_population_rurale"         = "Part population rurale (%)",
+  "Lits_hospitaliers_pour_1000"    = "Lits hospitaliers pour 1000 habitants",
+  "Risque_mortalite_maternelle"    = "Risque mortalité maternelle",
+  "Participation_femmes_travail"   = "Participation femmes au travail (%)",
+  "Population_jeunes_0_14"         = "Population jeunes (0-14 ans, %)",
+  "Mortalite_infantile"            = "Mortalité infantile (pour 1000 naissances)",
+  "Taux_fertilite_total"           = "Taux de fertilité total",
+  "Taux_natalite_brut"             = "Taux de natalité brut"
+)
+
+cor_data$label <- mapvalues(
+  cor_data$variable,
+  from = names(labels_cor_data),
+  to = labels_cor_data,
+  warn_missing = FALSE
+)
+
+```
+
+```{r echo=FALSE, fig.align='center'}
+
+# Visualisation de la correlation avec les facteurs contextuels
+
+multi_corr <- ggplot(cor_data, aes(x = reorder(label, correlation), y = correlation, fill = correlation > 0)) +
+  geom_col() +
+  coord_flip() +
+  scale_fill_manual(values = c("red", "blue"), labels = c("Négatif", "Positif")) +
+  labs(
+    title = "Corrélations avec la couverture vaccinale",
+    x = "Indicateur",
+    y = "Corrélation (Pearson)"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_text(size = 8),
+    plot.title = element_text(size = 10, face = "bold"),
+    legend.position = "bottom"
+  )
+
+# Export en SVG
+ggsave(
+  filename = "output/plots/multi_corr.svg",
+  plot = multi_corr,
+  width = 8,
+  height = 6,
+  units = "in"
+)
+
+print(multi_corr)
+
+```
+
+```{r include=FALSE}
+
+# c.4. Analyse de la multicolinéarité (VIF)
+
+# Régression linéaire simple pour obtenir les VIF
+modele_lm <- lm(regional_coverage ~ ., data = indicators_africa)
+
+# Calcul du VIF
+
+vif_values <- tryCatch(
+  vif(modele_lm),
+  error = function(e) {
+    if (grepl("there are aliased coefficients in the model", e$message)) {
+      message("VIF ignoré : coefficients aliasés dans le modèle.")
+      return(NULL)
+    } else {
+      stop(e)  # Propager les autres erreurs non prévues
+    }
+  }
+)
+
+# Certains variables sont parfaitement colinéaires ou linéairement dépendantes entre elles.
+
+```
+```{r include=FALSE}
+
+# c.5. Nettoyer la base des indicateurs trop correlés
+
+# Vérifier les variables problématiques et nettoyer le modèle
+alias(modele_lm)
+
+# Supposons que data_explanatory contient toutes tes variables explicatives
+indics_explanatory <- indicators_africa %>% select(-regional_coverage)  # ou la variable cible
+
+cor_matrix <- cor(indics_explanatory, use = "pairwise.complete.obs")
+
+# Afficher les corrélations élevées (ex: > 0.95)
+high_indics <- which(abs(cor_matrix) > 0.95 & abs(cor_matrix) < 1, arr.ind = TRUE)
+
+# Nettoyer la base de données
+indics_to_remone <- unique(colnames(cor_matrix)[high_indics[, 2]])
+
+indics_explanatory_remone <- indicators_africa %>%
+  select(-all_of(indics_to_remone))
+
+
+# Après premier nettoyage
+cor_matrix_remone <- cor(indics_explanatory_remone %>% select(-regional_coverage), use = "pairwise.complete.obs")
+
+high_indics_remone <- which(abs(cor_matrix_remone) > 0.95 & abs(cor_matrix_remone) < 1, arr.ind = TRUE) #0
+
+# Tout est clean.
+# Les variables très correlées entre elles sont supprimées.
+
+
+clean_indicators_africa <- indics_explanatory_remone
+dim(clean_indicators_africa) #34 variables, 33 indicateurs potentiels
+str(clean_indicators_africa) # Elle contient toujours la variable coverage_region.
+
+
+indicators_manual <- colnames(clean_indicators_africa)
+
+```
+
+Après analyse de multicolinéarité, et retrait des variables parfaitement colinéaires ou linéairement dépendantes entre elles avec analyse du VIF, seules 31 variables permettaient une explication de la couverture vaccinale en Afrique.
+
+```{r include=FALSE}
+print(indicators_manual)
+```
+
+#### Sélection des variables avec Lasso
+
+
+LASSO a sélectionné 18 variables explicatives parmi 39, avec un lambda minimal à 0,11.
+
+
+```{r echo=FALSE, fig.align='center', out.width="75%"}
+library(glmnet)
+library(ggplot2)
+library(tibble)
+
+# str(all_indicators_africa)
+# dim(all_indicators_africa) # 43 variables. 41 indicateurs.
+data_lasso <- all_indicators_africa %>%
+  mutate(
+    across(where(is.character), as.factor)
+  )
+
+#any(is.na(data_lasso)) # False
+#sum(is.na(data_lasso)) # 0 valeurs manquantes
+
+
+# a. Préparer les données
+# Garder uniquement les lignes sans NA sur coverage
+data_lasso <- data_lasso[!is.na(data_lasso$regional_coverage), ]
+
+# Sélectionner les colones numériques
+data_lasso_numeric <- data_lasso %>%
+  select(where(is.numeric), -regional_target, -regional_immune_percentage, -regional_vaccinated) %>%
+  drop_na()
+
+#dim(data_lasso_numeric)
+#any(is.na(data_lasso_numeric)) # False. Go to Lasso
+
+
+# Séparer la cible et les prédicteurs
+y_lasso <- data_lasso_numeric$regional_coverage
+x_lasso <- data_lasso_numeric %>% select(-regional_coverage) %>% as.matrix()
+
+# Ajuster le modèle Lasso avec validation croisée
+set.seed(123)
+lasso_cv <- cv.glmnet(
+  x_lasso,
+  y_lasso,
+  alpha = 1,        # Lasso pur
+  standardize = TRUE,
+  nfolds = 5
+)
+
+# Extraire les données pour le graphique CV
+df_lasso_cv <- tibble(
+  log_lambda = log(lasso_cv$lambda),
+  cvm = lasso_cv$cvm,
+  cvup = lasso_cv$cvup,
+  cvlo = lasso_cv$cvlo
+)
+
+# Créer le plot ggplot2 pour Lasso
+plot_lasso <- ggplot(df_lasso_cv, aes(x = log_lambda, y = cvm)) +
+  geom_line(color = "darkorange") +
+  geom_point(color = "darkorange") +
+  geom_errorbar(aes(ymin = cvlo, ymax = cvup), width = 0.1, color = "gray50") +
+  geom_vline(xintercept = log(lasso_cv$lambda.min), linetype = "dashed", color = "red") +
+  geom_vline(xintercept = log(lasso_cv$lambda.1se), linetype = "dotted", color = "darkgreen") +
+  labs(
+    title = "Lasso: Validation Croisée",
+    x = "log(Lambda)",
+    y = "Erreur moyenne CV"
+  ) +
+  theme_minimal()
+
+# Export en SVG
+ggsave(
+  filename = "output/plots/lasso_cv.svg",
+  plot = plot_lasso,
+  width = 8,
+  height = 6,
+  units = "in"
+)
+
+print(plot_lasso)
+
+```
+
+Les facteurs les plus fortement associés positivement à la couverture vaccinale sont les dépenses de santé (% du PIB), la population âgée, l'espérance de vie à la naissance et les dépenses en éducation. À l’inverse, les dépenses directes de santé par les patients et certains indicateurs éducatifs comme la scolarisation primaire et l'alphabétisation présentent une corrélation négative. Ces résultats suggèrent que les investissements publics dans la santé et l’éducation sont des leviers clés pour améliorer la couverture vaccinale.
+
+```{r echo=FALSE}
+
+# c. Identifier les variables sélectionnées
+
+# Lambda optimal
+lambda_opt <- lasso_cv$lambda.min #0.1148328
+
+# Coefficients associés
+lasso_coef <- coef(lasso_cv, s = lambda_opt)
+
+# Variables sélectionnées (coefficients non nuls)
+
+indicators_lasso <- rownames(lasso_coef)[which(lasso_coef != 0)]
+indicators_lasso <- indicators_lasso[indicators_lasso != "(Intercept)"]  # Retirer intercept
+
+```
+```{r include=FALSE}
+# svg("output/plots/lasso.svg")
+# plot(lasso_cv)
+# dev.off()
+# print(indicators_lasso)
+
+print(indicators_lasso)
+
+```
+
+#### Sélection des variables avec ElasticNet
+
+
+Le modèle Elastic Net (α entre LASSO et Ridge) a permis de conserver un bon compromis entre précision et interprétabilité. Parmi les 39 variables, 25 ont été sélectionnées.
+
+
+```{r echo=FALSE, fig.align='center', message=FALSE, warning=FALSE, out.width="75%"}
+# Data : all_indicators_africa
+
+# str(all_indicators_africa)
+# dim(all_indicators_africa) # 43 variables. 41 indicateurs.
+ data_elasticnet <- all_indicators_africa %>%
+   mutate(
+    across(where(is.character), as.factor)
+   )
+
+# any(is.na(data_elasticnet)) # False
+# sum(is.na(data_elasticnet)) # 0 valeurs manquantes
+
+
+# a. Préparer les données
+
+# Garder uniquement les lignes sans NA sur coverage
+data_elasticnet <- data_elasticnet[!is.na(data_lasso$regional_coverage), ]
+
+# Sélectionner les colones numériques
+data_elasticnet_numeric <- data_elasticnet %>%
+  select(where(is.numeric), -regional_target, -regional_immune_percentage, -regional_vaccinated) %>%
+  drop_na()
+
+# dim(data_elasticnet_numeric) #39 variables
+# any(is.na(data_elasticnet_numeric)) #False
+
+# Séparer la cible et les prédicteurs
+y_elasticnet <- data_elasticnet_numeric$regional_coverage
+x_elasticnet <- data_elasticnet_numeric %>% select(-regional_coverage) %>% as.matrix()
+
+
+# b. Appliquer Lasso avec validation croisée
+set.seed(123)  # pour reproductibilité
+elastic_cv <- cv.glmnet(
+  x_elasticnet,
+  y_elasticnet,
+  alpha = 0.5,
+  standardize = TRUE,
+  nfolds = 5
+  )
+
+# c. Identifier les variables sélectionnées
+
+# Lambda optimal
+lambda_elasticnet <- elastic_cv$lambda.min
+
+# Coefficients associés
+coef_elastic <- coef(elastic_cv, s = lambda_elasticnet)
+
+# Variables sélectionnées (coefficients non nuls)
+
+data_indicateurs_elasticnet <- coef_elastic %>%
+  as.matrix() %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("variable")
+
+colnames(data_indicateurs_elasticnet)[2] <- "coefficient"
+
+
+data_indicateurs_elasticnet <- data_indicateurs_elasticnet %>%
+  filter(coefficient != 0, variable != "(Intercept)")
+
+indicators_elasticnet <- unique(data_indicateurs_elasticnet$variable)
+
+
+library(glmnet)
+library(ggplot2)
+library(tibble) # pour rownames_to_column si besoin
+
+# Extraire les données du cross-validation plot
+df_elastic_cv <- tibble(
+  log_lambda = log(elastic_cv$lambda),
+  cvm = elastic_cv$cvm,
+  cvup = elastic_cv$cvup,
+  cvlo = elastic_cv$cvlo
+)
+
+# Construire le plot ggplot2
+plot_elasticnet <- ggplot(df_elastic_cv, aes(x = log_lambda, y = cvm)) +
+  geom_line(color = "steelblue") +
+  geom_point(color = "steelblue") +
+  geom_errorbar(aes(ymin = cvlo, ymax = cvup), width = 0.1, color = "gray50") +
+  geom_vline(xintercept = log(elastic_cv$lambda.min), linetype = "dashed", color = "red") +
+  geom_vline(xintercept = log(elastic_cv$lambda.1se), linetype = "dotted", color = "darkgreen") +
+  labs(
+    title = "Elastic Net: Validation Croisée",
+    x = "log(Lambda)",
+    y = "Erreur moyenne CV"
+  ) +
+  theme_minimal()
+
+# Export SVG
+ggsave(
+  filename = "output/plots/elasticnet_cv.svg",
+  plot = plot_elasticnet,
+  width = 8,
+  height = 6,
+  units = "in"
+)
+
+print(plot_elasticnet)
+
+```
+
+
+Cette sélection met en lumière l’influence positive des dépenses de santé et d’éducation, de l’espérance de vie et de la population âgée, ainsi que l’impact négatif de l’instabilité politique, de la pression démographique et du financement direct des soins. Ces résultats confirment l’importance des politiques publiques dans l’amélioration de la couverture vaccinale.
+
+```{r include=FALSE, out.width="80%"}
+print(indicators_elasticnet)
+```
+
+#### Sélection des variables avec Random Forest
+
+
+Le modèle Random Forest, en complément du modèle régularisé Elastic Net, confirme l’importance de facteurs démographiques comme la fertilité, la natalité, et la structure par âge de la population dans la couverture vaccinale.
+
+
+```{r message=FALSE, fig.align='center', warning=FALSE, include=FALSE, out.width="80%"}
+
+# Data : all_indicators_africa
+
+# str(all_indicators_africa)
+# dim(all_indicators_africa) # 43 variables. 41 indicateurs.
+data_randforest <- all_indicators_africa %>%
+  mutate(
+    across(where(is.character), as.factor)
+  )
+
+# any(is.na(data_randforest)) # True
+# sum(is.na(data_randforest)) # 520 valeurs manquantes
+
+
+# a. Préparer les données
+# Garder uniquement les lignes sans NA sur coverage
+data_randforest <- data_randforest[!is.na(data_randforest$regional_coverage), ]
+
+# Sélectionner uniquement les colones numériques
+data_randforest_numeric <- data_randforest %>%
+  select(where(is.numeric), -regional_target, -regional_immune_percentage, -regional_vaccinated) %>%
+  drop_na(regional_coverage)
+
+# dim(data_randforest_numeric) # 90 enregistremets, 39 variables, 38 indicateurs.
+# any(is.na(data_randforest_numeric)) # True
+
+# Supprimer les lignes avec d'autres NA
+data_randforest_numeric <- drop_na(data_randforest_numeric)
+
+# Vérifier que tout est okay
+# dim(data_randforest_numeric) # 22 enregistrements, 39 variables, 38 indicateurs.
+# any(is.na(data_randforest_numeric)) # False. Go to Random Forrest
+
+# Séparer la cible et les prédicteurs
+y_randforest <- data_randforest_numeric$regional_coverage
+x_randforest <- data_randforest_numeric %>% select(-regional_coverage) %>% as.matrix()
+
+
+# b. Lancer le modèle Random Forrest
+
+set.seed(123)  # pour reproductibilité
+randforest_ml <- randomForest(
+  x = x_randforest,
+  y = y_randforest,
+  importance = TRUE,  # Pour extraire l’importance des variables
+  ntree = 500         # Nombre d’arbres (par défaut 500, c’est bien)
+)
+
+# c. Identifier les variables sélectionnées
+
+# Afficher l'importance des variables
+indicators_randforest_importance <- importance(randforest_ml, type = 1)
+data_indicators_randforest <- data.frame(
+  variable = rownames(indicators_randforest_importance),
+  importance = indicators_randforest_importance[,1]
+  )
+
+# Visualisation graphique
+
+# Ajout de labels lisibles
+data_indicators_randforest$label <- mapvalues(
+  data_indicators_randforest$variable,
+  from = names(labels_cor_data),
+  to = labels_cor_data,
+  warn_missing = FALSE
+)
+
+# d. Sélection des meilleurs variables
+
+
+# Réordonner selon l'importance (si ce n'est pas encore fait)
+data_indicators_randforest <- data_indicators_randforest[order(-data_indicators_randforest$importance), ]
+
+# Plots
+
+random_forest <- ggplot(data_indicators_randforest, aes(x = reorder(label, importance), y = importance)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  labs(
+    x = "Variables explicatives",
+    y = "Importance (augmentation MSE)",
+    title = "Importance des variables (Random Forest)"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_text(size = 8),
+    plot.title = element_text(size = 10, face = "bold"),
+    legend.position = "bottom"
+  )
+
+ggsave(
+  filename = "output/plots/random_forest.svg",
+  plot = random_forest,
+  width = 8,
+  height = 6,
+  units = "in"
+)
+
+print(random_forest)
+
+```
+
+
+On observe une convergence entre les deux modèles sur plusieurs variables clés (année, part des jeunes/enfants, dépenses en éducation, stabilité politique), tout en révélant des effets non linéaires que le modèle linéaire n’a pas pu détecter — comme l’impact du taux de fertilité total ou de l’accès à l’électricité.
+
+```{r include=FALSE}
+
+# Sélectionner les 20 variables les plus importantes
+indicators_randforest <- data_indicators_randforest$variable[1:20]
+
+print(indicators_randforest)
+
+```
+
+#### Comparaison des méthodes de sélection (Multivarié, Lasso, ElasticNet, Random Forest)
+
+
+Cette comparaison dégage en tout, 20 indicateurs clés, qui pourraient expliquer les tendances de la couverture vaccinale infantile en Afrique. Nous avons extrait celles retenues par au moins 3 méthodes de sélection.
+
+```{r include=FALSE}
+# Créer une colonne avec toutes les variables uniques sélectionnées par au moins une méthode
+all_vars <- unique(c(indicators_lasso, indicators_randforest, indicators_elasticnet, indicators_manual))
+
+# a. Construire le data frame comparatif
+indicators_comparatif <- data.frame(
+  variable = all_vars,
+  Lasso = all_vars %in% indicators_lasso,
+  RandomForest = all_vars %in% indicators_randforest,
+  ElasticNet = all_vars %in% indicators_elasticnet,
+  Manuel = all_vars %in% indicators_manual
+)
+
+# Affichage
+print(indicators_comparatif)
+
+# Nombre de méthodes ayant sélectionné chaque variable
+indicators_comparatif$n_methods <- rowSums(indicators_comparatif[ , -1])
+
+# Tri décroissant
+indicators_comparatif <- indicators_comparatif[order(-indicators_comparatif$n_methods), ]
+
+# Affichage
+print(indicators_comparatif)
+str(indicators_comparatif)
+
+
+# b. Visualiser la sélection sous forme de heatmap
+
+# Constituer la basse pour le plot
+ic_plot <- dplyr::rename(indicators_comparatif, nom_variable = variable)
+str(ic_plot)
+
+# 2. Réorganiser l'ordre des variables (optionnel, mais utile pour la lisibilité)
+ic_plot <- ic_plot %>%
+  arrange(desc(n_methods)) %>%
+  mutate(nom_variable = factor(nom_variable, levels = nom_variable))
+
+# 3. Transformation en format long
+ic_plot_long <- melt(ic_plot[, 1:5], id.vars = "nom_variable")
+
+str(ic_plot_long)
+ic_plot_long <- dplyr::rename(ic_plot_long, methode = variable)
+
+
+```
+```{r include=FALSE}
+# 4. Graphique heatmap
+ic_plot <- ggplot(ic_plot_long, aes(x = nom_variable, y = methode)) +
+  geom_tile(aes(fill = value), color = "white") +
+  scale_fill_manual(values = c("tomato", "steelblue")) +
+  labs(
+    title = "Comparaison des méthodes de sélection de variables",
+    x = "Variable",
+    y = "Méthode"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)
+  )
+
+ggsave(
+  filename = "output/plots/ic_plot.svg",
+  plot = ic_plot,
+  width = 8,
+  height = 6,
+  units = "in"
+)
+
+# Fusionner les indicateurs, et les utiliser pour une régression linéaire
+core_indicators <- indicators_comparatif$variable[indicators_comparatif$n_methods >= 3]
+print(ic_plot)
+
+```
+```{r echo=FALSE}
+print(core_indicators)
+```
+
+Essayons d'évaluer leur linéarité dans un modèle de régression linéaire simple.
+
+
+### Modèle de régression linéaire simple
+
+
+Ce modèle linéaire explique environ 84 % de la variance de la couverture vaccinale.
+
+```{r include=FALSE}
+# Data : all_indicators_africa
+
+str(all_indicators_africa)
+dim(all_indicators_africa) # 43 variables. 41 indicateurs.
+
+# Préparer les données pour le modèle de régression linéaire.
+data_models <- all_indicators_africa[, c("regional_coverage", core_indicators)]
+str(data_models)
+dim(data_models) #90, 17 variables
+
+any(is.na(data_models)) # True
+sum(is.na(data_models)) # 263 valeurs manquantes
+
+# Traitement des NA
+clean_data_models <- data_models %>%
+  select(where(~ mean(is.na(.)) < 0.5))
+
+str(clean_data_models)
+dim(clean_data_models) #90, 16 variables
+
+# Imputation des NA par la moyenne
+clean_data_models <- clean_data_models %>%
+  mutate(across(where(is.numeric), ~ ifelse(is.na(.), mean(., na.rm = TRUE), .)))
+
+any(is.na(clean_data_models)) # False
+sum(is.na(clean_data_models)) # 0 valeurs manquantes
+
+
+# Régression linéaire simple
+
+formule <- as.formula(paste("regional_coverage ~", paste(colnames(clean_data_models %>% select(-"regional_coverage")), collapse = " + ")))
+first_modele_lm <- lm(formule, data = clean_data_models, na.action = na.omit)
+
+summary(first_modele_lm)
+
+# Régression linéaire ajustée (log)
+ 
+min(clean_data_models$regional_coverage, na.rm = TRUE) #3
+clean_data_models$log_regional_coverage <- log(clean_data_models$regional_coverage)
+
+formule_log <- as.formula(
+  paste("log_regional_coverage ~",
+        paste(colnames(clean_data_models %>% select(-"regional_coverage",-"log_regional_coverage")),
+              collapse = " + "))
+)
+
+log_modele_lm <- lm(formule_log, data = clean_data_models, na.action = na.omit)
+
+```
+
+Si certaines variables comme les dépenses en santé, l'alphabétisation des adultes, l'espérance de vie infantile et la stabilité opitique montrent un effet significatif, plusieurs variables ont des p-values \> 0,05, donc ne sont pas significativement associées à la variable cible individuellement.
+
+```{r include=FALSE}
+summary(log_modele_lm)
+```
+
+Essayons de transformer ces variables explicatives en composantes principales.
+
+### Analyse en composantes principales (ACP)
+
+L'ACP sert à résumer et comprendre un jeu de données complexe tout en réduisant sa dimension. En clair, elle transforme beaucoup de variables corrélées en un petit nombre de nouvelles variables qui conservent l’essentiel de l’information.
+
+```{r include=FALSE}
+
+# Data : clean_indicators_africa
+
+summary(clean_indicators_africa)
+dim(clean_indicators_africa) # 31 variables. 90 enregistrements.
+
+
+# Retirer la variable à expliquer (couverture vaccinale en région afrique) 
+data_pca <- clean_indicators_africa %>%
+  select(-regional_coverage, -regional_immune_percentage)
+
+# Vérifier la pertinence de l'ACP
+
+cortest.bartlett(cor(data_pca), n = nrow(data_pca)) # p-value =	0 (≈ < 2.2e-16)
+
+# Faire l'ACP avec standardisation automatique
+res_pca <- PCA(data_pca, scale.unit = TRUE, ncp = 5, graph = FALSE)
+pcs <- as.data.frame(res_pca$ind$coord[, 1:5])
+
+# Cercle des corrélations (variables)
+
+fviz_pca_var(res_pca,
+             col.var = "contrib", # Colorier par contribution
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE          # Évite que les noms se chevauchent
+)
+
+
+# Visualiser la projection des observations
+
+fviz_pca_ind(res_pca, repel = TRUE, col.ind = "cos2",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"))
+
+
+# Extraire les composantes principales (par exemple les 5 premières)
+pcs <- as.data.frame(res_pca$ind$coord[, 1:5])
+
+
+# Extraire les loadings
+loadings <- res_pca$var$coord
+str(loadings)
+
+
+
+# Pour les 5 premiers axes
+top_variables <- lapply(1:5, function(i) {
+  loading_scores <- abs(loadings[, i])
+  top_10 <- sort(loading_scores, decreasing = TRUE)[1:10]
+  return(names(top_10))
+})
+
+names(top_variables) <- paste0("PC", 1:5)
+print(top_variables)
+
+pc_names <- c(
+  "Developpement Socio Economique Global",
+  "Investissements Sociaux et Inclusion",
+  "Structure demographique et acces aux services",
+  "Stabilite institutionnelle et gouvernance",
+  "Volatilité economiques et pressions sociales"
+)
+
+# Renommer les colonnes de pcs avec les noms des composantes principales
+colnames(pcs) <- pc_names
+
+
+# Ajouter la variable cible
+pcs$regional_coverage <- clean_indicators_africa$regional_coverage
+
+
+# Régression linéaire sur ces composantes principales
+model_pca <- lm(regional_coverage ~ ., data = pcs)
+
+summary(model_pca)
+
+# Extrait des résidus pour évaluer les résultats
+
+# Étape 1 : Extraire les éléments nécessaires
+coords <- res_pca$ind$coord             # Coordonnées des individus (90 x n)
+loadings <- res_pca$var$coord           # Coordonnées des variables (32 x n)
+means <- res_pca$call$centre            # Moyenne de chaque variable
+sds <- res_pca$call$ecart.type          # Écart-type de chaque variable
+
+
+# Étape 2 : Sélection du nombre d'axes (par exemple, 5)
+k <- 5
+coords_k <- coords[, 1:k]
+loadings_k <- loadings[, 1:k]
+
+# Étape 3 : Reconstruction des données centrées-réduites
+reconstructed_scaled <- coords_k %*% t(loadings_k)
+
+# Étape 4 : Revenir à l’échelle d’origine
+reconstructed <- sweep(reconstructed_scaled, 2, sds, "*")   # dé-réduction
+reconstructed <- sweep(reconstructed, 2, means, "+")        # dé-centrage
+
+
+residuals <- data_pca - reconstructed
+
+rmse <- sqrt(colMeans(residuals^2))
+
+
+barplot(rmse, las = 2, main = "RMSE par variable (erreur de reconstruction)")
+
+
+
+pca_resid <- ggplot(data = NULL, aes(x = model_pca$fitted.values, y = model_pca$residuals)) +
+  geom_point() +
+  geom_hline(yintercept = 0, color = "red") +
+  labs(title = "Graphique des résidus",
+       x = "Valeurs prédites",
+       y = "Résidus")
+
+
+ggsave(
+  filename = "output/plots/pca_resid.png",
+  plot = pca_resid,
+  width = 8,
+  height = 6,
+  units = "in"
+)
+
+# print(pca_resid)
+
+```
+
+
+```{r echo=FALSE, fig.align='center', out.width="80%"}
+# Visualiser la variance expliquée (scree plot)
+fviz_screeplot(res_pca, addlabels = TRUE, ylim = c(0, 50))
+```
+
+
+Les 37 indicateurs socio économiques ont été réduit en cinq composantes principales, qui expliquent jusqu'à 79 % de la variance de la couverture vaccinale.
+
+```{r include=FALSE}
+plot(residuals(model_pca))
+abline(h = 0, col = "red")
+```
+
+Une régression linéaire basée sur ces composantes principales, donne un R² ajusté = 0.7316. Ce modèle explique environ 73% de la variance de la couverture vaccinale régionale, ce qui est un très bon niveau d’explication. De plus, avec F-statistique de  et une p-value \< 2,2e-16, le modèle est globalement significatif.
+
+
+```{r include=FALSE}
+
+# Validation croisée et robustesse du modèle
+validate_pca_model <- function(data, model) {
+  
+  # Analyse des résidus
+  residus <- residuals(model)
+  fitted_vals <- fitted(model)
+  
+  # Test de normalité des résidus
+  shapiro_test <- shapiro.test(residus)
+  
+  # Test d'homoscédasticité (Breusch-Pagan)
+  bp_test <- car::ncvTest(model)
+  
+  # Influence des observations (Distance de Cook)
+  cook_dist <- cooks.distance(model)
+  influential_obs <- which(cook_dist > 4/length(cook_dist))
+  
+  # Graphiques de diagnostic
+  par(mfrow = c(2, 2))
+  plot(model)
+  par(mfrow = c(1, 1))
+  
+  # Retourner les statistiques
+  list(
+    shapiro_pvalue = shapiro_test$p.value,
+    bp_pvalue = bp_test$p,
+    influential_observations = influential_obs,
+    cook_distances = cook_dist[cook_dist > 0.1]
+  )
+}
+
+# 7/10 - Modèle acceptable avec quelques points à surveiller !
+validation_results <- validate_pca_model(clean_indicators_africa, model_pca)
+
+print(validation_results)
+
+```
+```{r include=FALSE}
+validate_pca_model <- function(data, model, save_path = NULL) {
+  
+  residus <- residuals(model)
+  fitted_vals <- fitted(model)
+  
+  shapiro_test <- shapiro.test(residus)
+  bp_test <- car::ncvTest(model)
+  cook_dist <- cooks.distance(model)
+  influential_obs <- which(cook_dist > 4/length(cook_dist))
+  
+  # Sauvegarde en SVG si un chemin est fourni
+  if (!is.null(save_path)) {
+    dir.create(dirname(save_path), recursive = TRUE, showWarnings = FALSE)
+    svg(save_path, width = 8, height = 6)
+  }
+  
+  par(mfrow = c(2, 2))
+  plot(model)
+  par(mfrow = c(1, 1))
+  
+  if (!is.null(save_path)) dev.off()
+  
+  list(
+    shapiro_pvalue = shapiro_test$p.value,
+    bp_pvalue = bp_test$p,
+    influential_observations = influential_obs,
+    cook_distances = cook_dist[cook_dist > 0.1]
+  )
+}
+
+# Utilisation
+validation_results <- validate_pca_model(
+  clean_indicators_africa,
+  model_pca,
+  save_path = "output/plots/validation_pca.png"
+)
+
+```
+
+
+```{r echo=FALSE, fig.align='center', out.width="90%"}
+library(ggplot2)
+library(broom)
+
+validate_pca_model <- function(data, model, save_path = NULL) {
+  residus <- residuals(model)
+  fitted_vals <- fitted(model)
+  
+  shapiro_test <- shapiro.test(residus)
+  bp_test <- car::ncvTest(model)
+  cook_dist <- cooks.distance(model)
+  influential_obs <- which(cook_dist > 4/length(cook_dist))
+  
+  # 1. Histogramme des résidus
+  hist_plot <- ggplot(data.frame(residus), aes(x = residus)) +
+    geom_histogram(bins = 20, fill = "skyblue", color = "black") +
+    labs(title = "Histogramme des résidus", x = "Résidus", y = "Fréquence") +
+    theme_minimal()
+  
+  # 2. QQ plot
+  qq_plot <- ggplot(data.frame(sample = residus), aes(sample = sample)) +
+    stat_qq() + stat_qq_line(color = "red") +
+    labs(title = "QQ-plot des résidus") +
+    theme_minimal()
+  
+  # 3. Résidus vs valeurs ajustées
+  fitted_df <- data.frame(fitted_vals, residus)
+  resid_fitted_plot <- ggplot(fitted_df, aes(x = fitted_vals, y = residus)) +
+    geom_point() +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+    labs(title = "Résidus vs valeurs ajustées", x = "Valeurs ajustées", y = "Résidus") +
+    theme_minimal()
+  
+  # 4. Cook’s distance
+  cooks_df <- data.frame(obs = 1:length(cook_dist), cook = cook_dist)
+  cook_plot <- ggplot(cooks_df, aes(x = obs, y = cook)) +
+    geom_bar(stat = "identity", fill = "orange") +
+    geom_hline(yintercept = 4/length(cook_dist), color = "red", linetype = "dashed") +
+    labs(title = "Distance de Cook", x = "Observation", y = "Distance de Cook") +
+    theme_minimal()
+  
+  # Sauvegarde si chemin fourni (tout dans un patchwork)
+  if (!is.null(save_path)) {
+    library(patchwork)
+    final_plot <- hist_plot + qq_plot + resid_fitted_plot + cook_plot
+    dir.create(dirname(save_path), recursive = TRUE, showWarnings = FALSE)
+    ggsave(save_path, final_plot, width = 10, height = 8, units = "in")
+  }
+  
+  print(final_plot)
+  
+  list(
+    shapiro_pvalue = shapiro_test$p.value,
+    bp_pvalue = bp_test$p,
+    influential_observations = influential_obs,
+    cook_distances = cook_dist[cook_dist > 0.1]
+  )
+}
+
+validation_results <- validate_pca_model(
+  clean_indicators_africa,
+  model_pca,
+  save_path = "output/plots/validation_pca.png"
+)
+
+# print(validation_results)
+
+```
+
+
+\newpage
+
+# Discussion des hypothèses et résultat
+
+Observons l'effet des composantes principales sur la tenadance de la couverture vaccinale en Afrique.
+
+## Développement Socio Économique Global
+
+Son effet est très significatif (p = 2e-16), et augmente de 2,89 points la couverture vaccinale. Plus la région est socio-économiquement développée, meilleure est la couverture vaccinale. Cette relation positive forte confirme que le développement socio-économique constitue le socle fondamental d'un système vaccinal performant. Les régions développées disposent des infrastructures sanitaires, des ressources humaines qualifiées et des capacités logistiques nécessaires pour maintenir des chaînes d'approvisionnement efficaces et des campagnes de vaccination systématiques.
+
+## Investissements Sociaux et inclusion
+
+Sans surprises, son effet est également très significatif (p = 2e-16). L'ampleur de cet effet (+1,79 points de couverture vaccinale) s ouligne l'importance critique de l'équité dans l'accès aux soins. Les investissements ciblés vers les populations marginalisées (femmes, communautés rurales, minorités) génèrent un retour sur investissement vaccinal particulièrement élevé, suggérant que les inégalités d'accès constituent un goulot d'étranglement majeur plus que les contraintes techniques absolues.
+
+## Structure démographique et accès aux services
+
+L'effet de cette composante est marginale (p \> 0.5 \~ 0.08 ). Cette composante a un effet négatif modéré (\~-0,84 points de couverture vaccinale). Cela peut refléter des déséquilibres démographiques ou problèmes d’accès aux services. Cet effet négatif modéré révèle les défis spécifiques aux contextes démographiques complexes : populations très jeunes nécessitant des doses multiples, dispersion géographique des cibles compliquant la logistique, ou surcharge des services de santé dans les zones densément peuplées. Cette composante identifie les "zones difficiles" où l'effort logistique doit être intensifié malgré les contraintes structurelles.
+
+## Stabilité institutionnelle et gouvernance
+
+Plus un pays est politiquement stable, plus la couverture vaccinale tend à s'affaiblir (p = 2e-4). Un effet négatif surprenant : une stabilité institutionnelle plus forte est peut-être associée à une couverture plus faible (-2,37 points de couverture vaccinale).
+
+L’effet négatif de la stabilité institutionnelle est contre-intuitif : les institutions "stables" pourraient souffrir de rigidité bureaucratique freinant l'innovation et l'adaptation des programmes vaccinaux aux réalités locales. Alternativement, cette stabilité pourrait masquer une complaisance institutionnelle ou refléter des systèmes de gouvernance formellement stables mais déconnectés des besoins sanitaires réels des populations.
+
+## Volatilité économique et pressions sociales
+
+Plus une région est économiquement dynamique/volatile dans ses ressources (p \~ 0.007), meilleure est la couverture vaccinale (+1,84 points).
+
+Cette relation positive surprenante révèle que les crises et tensions sociales peuvent catalyser une mobilisation exceptionnelle des ressources, une priorisation politique de la santé publique, ou déclencher des mécanismes d'urgence plus efficaces que les routines administratives habituelles. La "pression" semble générer une réactivité bénéfique des systèmes de santé.
+
+
+
+# Préconisations stratégiques
+
+Ces résultats dessinent en Afrique, un paysage où la performance vaccinale dépend davantage du dynamisme adaptatif des systèmes (développement économique, inclusion sociale, réactivité aux pressions) que de leur stabilité formelle. Les institutions trop rigides semblent contre-productives, tandis que les contextes "sous tension" favorisent paradoxalement l'innovation et l'efficacité opérationnelle.
+
+## Axes stratégiques prioritaires
+
+Pour maximiser l'impact de la couverture vaccinale avec des ressources limitées, l'Unicef devrait concentrer ses efforts sur trois axes complémentaires à fort rendement. Ces derniers lui permettront de faire plus, avec moins de ressources.
+
+\vspace{5mm}
+
+```{r echo=FALSE, fig.align='center', out.width="90%"}
+knitr::include_graphics("medias/roi.pdf")
+```
+\vspace{5mm}
+
+### 1. Optimiser l'allocation géographique des doses de vaccin Afrique
+
+D'abord, optimiser l'allocation géographique des 2 milliards de doses annuelles en priorisant systématiquement les régions identifiées par l'analyse comme ayant un faible développement socio-économique, ce qui représente le levier d'impact le plus puissant (+2.89) sans coût supplémentaire.
+
+### 2. Former des agents de santé locaux dans les zones à faible inclusion
+
+Ensuite, intensifier la mobilisation communautaire en formant davantage d'agents de santé locaux dans les zones à faible inclusion sociale, exploitant ainsi le deuxième facteur d'efficacité (+1.79) via les réseaux existants.
+
+### 3. Campagnes de vaccination mobiles
+
+Enfin, renforcer les stratégies logistiques "last-mile" par des campagnes mobiles et des chaînes du froid décentralisées dans les régions démographiquement contraintes, transformant les barrières d'accès (-0.84) en opportunités d'amélioration.
+
+
+## Stratégie de mise en œuvre
+
+Ces différentes approches permetent de transformer l'expertise logistique et opérationnelle existante de l'Unicefissements budgétaires majeurs. Pour commencer, nous avons identifié, 16 pays prioritaires par axes stratégiques, selon leur niveau actuel d'immunité nationale, dans le but de les amener aux 95 % d'immunité collective recommandé par l'OMS.
+
+\vspace{5mm}
+
+```{r echo=FALSE, fig.align='center', out.width="90%"}
+knitr::include_graphics("medias/strategy.pdf")
+```
+
+\vspace{5mm}
+
+Pour chacun d'eux, nous avons évalué les besoins nécessaires, et apprécier l'impact de chaque action strataégiques à mener. Alors, par où commencer ?
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+data_final <- read.xlsx("data/processed/data_final.xlsx")
+# str(data_final)
+
+# ANALYSE STRATÉGIQUE UNICEF - RÉGIONS AFRICAINES (WCAR & ESAR)
+# Code pour analyser les 3 axes de préconisations stratégiques
+
+library(dplyr)
+library(ggplot2)
+library(plotly)
+library(scales)
+library(RColorBrewer)
+library(gridExtra)
+library(corrplot)
+library(viridis)
+library(tidyr)
+
+# ===== 1. CONFIGURATION ET DONNÉES =====
+
+# Pays des régions africaines UNICEF (basé sur la classification standard)
+wcar_countries <- c("Benin", "Burkina Faso", "Cameroon", "Cape Verde", "Central African Republic",
+                    "Chad", "Congo", "Democratic Republic of the Congo", "Equatorial Guinea", 
+                    "Gabon", "Gambia", "Ghana", "Guinea", "Guinea-Bissau", "Ivory Coast",
+                    "Liberia", "Mali", "Mauritania", "Niger", "Nigeria", "São Tomé and Príncipe",
+                    "Senegal", "Sierra Leone", "Togo")
+
+esar_countries <- c("Angola", "Botswana", "Burundi", "Comoros", "Eritrea", "Eswatini", "Ethiopia",
+                    "Kenya", "Lesotho", "Madagascar", "Malawi", "Mauritius", "Mozambique", 
+                    "Namibia", "Rwanda", "Seychelles", "Somalia", "South Africa", "South Sudan",
+                    "Sudan", "Tanzania", "Uganda", "Zambia", "Zimbabwe")
+
+# Filtrer pour les régions africaines UNICEF
+filter_africa_regions <- function(data) {
+  
+  # D'abord, vérifier les pays disponibles
+  cat("Échantillon de pays disponibles dans les données:\n")
+  available_countries <- unique(data$country.x[!is.na(data$country.x)])
+  cat(paste(head(available_countries, 20), collapse = ", "), "\n\n")
+  
+  # Filtrer pour exclure les données globales et garder seulement les pays
+  country_data <- data %>%
+    filter(!is.na(country.x), 
+           unicef_region != "Global",
+           !is.na(unicef_region))
+  
+  # Assigner les régions basées sur les noms de pays (approche flexible)
+  country_data$region_short <- NA
+  
+  # Matching flexible des pays WCAR
+  wcar_patterns <- paste(wcar_countries, collapse = "|")
+  country_data$region_short[grepl(wcar_patterns, country_data$country.x, ignore.case = TRUE)] <- "WCAR"
+  
+  # Matching flexible des pays ESAR  
+  esar_patterns <- paste(esar_countries, collapse = "|")
+  country_data$region_short[grepl(esar_patterns, country_data$country.x, ignore.case = TRUE)] <- "ESAR"
+  
+  # Si pas de match par nom de pays, utiliser unicef_region si disponible
+  africa_data <- country_data %>%
+    filter(!is.na(region_short) | grepl("Africa", unicef_region, ignore.case = TRUE))
+  
+  # Pour les pays non assignés mais dans des régions africaines, essayer d'inférer
+  unassigned_africa <- africa_data %>%
+    filter(is.na(region_short), grepl("Africa", unicef_region, ignore.case = TRUE))
+  
+  if(nrow(unassigned_africa) > 0) {
+    africa_data$region_short[is.na(africa_data$region_short) & 
+                               grepl("West|Central", africa_data$unicef_region, ignore.case = TRUE)] <- "WCAR"
+    africa_data$region_short[is.na(africa_data$region_short) & 
+                               grepl("East|South", africa_data$unicef_region, ignore.case = TRUE)] <- "ESAR"
+  }
+  
+  # Garder seulement les données avec région assignée
+  africa_data <- africa_data %>% filter(!is.na(region_short))
+  
+  return(africa_data)
+}
+
+# ===== 2. AXE 1: OPTIMISATION GÉOGRAPHIQUE (Développement Socio-économique) =====
+
+conflicts_prefer(scales::rescale)
+
+analyze_geographic_optimization <- function(africa_data) {
+  
+  cat("=== AXE 1: OPTIMISATION GÉOGRAPHIQUE ===\n")
+  cat("Impact du développement socio-économique (+2.89)\n\n")
+  
+  # Variables PC1 (Développement Socio-Économique Global) - utiliser celles disponibles
+  pc1_vars <- c("PIB_par_habitant", "Esperance_vie_naissance", "Scolarisation_secondaire", 
+                "Utilisateurs_Internet", "Taux_urbanisation", "Achèvement_primaire", "Achèvement_secondaire")
+  
+  # Calculer score PC1 par pays (prendre année la plus récente)
+  country_pc1 <- africa_data %>%
+    filter(!is.na(country.x)) %>%
+    group_by(country.x, region_short) %>%
+    arrange(desc(year)) %>%
+    slice(1) %>%
+    ungroup() %>%
+    select(country.x, region_short, immune_percentage, target, Population_totale, year,
+           all_of(intersect(pc1_vars, names(africa_data))))
+  
+  # Calculer score composite PC1 (normaliser chaque variable puis moyenner)
+  pc1_data <- country_pc1[, intersect(pc1_vars, names(country_pc1))]
+  if(ncol(pc1_data) > 0) {
+    pc1_scaled <- as.data.frame(scale(pc1_data))
+    country_pc1$pc1_score <- rowMeans(pc1_scaled, na.rm = TRUE)
+  } else {
+    # Si aucune variable PC1 disponible, utiliser un score par défaut
+    country_pc1$pc1_score <- 0
+  }
+  
+  # Score de priorité géographique (plus bas = plus prioritaire)
+  country_pc1$priority_geo <- rescale(-country_pc1$pc1_score, to = c(0, 100))
+  
+  # Top pays à prioriser géographiquement
+  geo_priorities <- country_pc1 %>%
+    filter(!is.na(priority_geo), !is.na(immune_percentage)) %>%
+    group_by(region_short) %>%
+    arrange(desc(priority_geo)) %>%
+    slice_head(n = 8) %>%
+    ungroup()
+  
+  cat("TOP PAYS POUR OPTIMISATION GÉOGRAPHIQUE:\n")
+  for(region in c("WCAR", "ESAR")) {
+    if(any(geo_priorities$region_short == region)) {
+      cat(paste0("\n", region, ":\n"))
+      region_geo <- geo_priorities %>% filter(region_short == region)
+      for(i in 1:min(5, nrow(region_geo))) {
+        pib_val <- ifelse(is.na(region_geo$PIB_par_habitant[i]), "N/A", 
+                          format(round(region_geo$PIB_par_habitant[i], 0), big.mark = ","))
+        immunite_val <- ifelse(is.na(region_geo$immune_percentage[i]), "N/A",
+                               sprintf("%.1f", region_geo$immune_percentage[i]))
+        cat(sprintf("%d. %s (Priorité: %.1f, PIB/hab: $%s, Immunité: %s%%)\n", 
+                    i, region_geo$country.x[i], region_geo$priority_geo[i],
+                    pib_val, immunite_val))
+      }
+    }
+  }
+  
+  # Calcul potentiel d'impact
+  geo_impact <- geo_priorities %>%
+    summarise(
+      pays_total = n(),
+      immunite_moy = mean(immune_percentage, na.rm = TRUE),
+      gap_immunite = 95 - immunite_moy,  # Objectif 95% d'immunité
+      pop_totale = sum(Population_totale, na.rm = TRUE),
+      .groups = "drop"
+    )
+  
+  cat(sprintf("\nIMPACT POTENTIEL OPTIMISATION GÉOGRAPHIQUE:\n"))
+  cat(sprintf("- %d pays prioritaires identifiés\n", geo_impact$pays_total))
+  cat(sprintf("- Immunité moyenne actuelle: %.1f%%\n", geo_impact$immunite_moy))
+  cat(sprintf("- Gap d'immunité: %.1f points\n", geo_impact$gap_immunite))
+  cat(sprintf("- Population totale ciblée: %s\n", format(geo_impact$pop_totale, big.mark = ",")))
+  
+  return(list(data = geo_priorities, impact = geo_impact))
+}
+
+# ===== 3. AXE 2: MOBILISATION COMMUNAUTAIRE (Inclusion Sociale) =====
+
+analyze_community_mobilization <- function(africa_data) {
+  
+  cat("\n\n=== AXE 2: MOBILISATION COMMUNAUTAIRE ===\n")
+  cat("Impact des investissements sociaux (+1.79)\n\n")
+  
+  # Variables PC2 (Investissements Sociaux et Inclusion) - utiliser celles disponibles
+  pc2_vars <- c("Depenses_sante_PIB", "Depenses_education_PIB", "Revenus_publics_PIB",
+                "Part_femmes_population", "Risque_mortalite_maternelle", "Scolarisation_primaire")
+  
+  # Calculer score PC2 par pays
+  country_pc2 <- africa_data %>%
+    filter(!is.na(country.x)) %>%
+    group_by(country.x, region_short) %>%
+    arrange(desc(year)) %>%
+    slice(1) %>%
+    ungroup() %>%
+    select(country.x, region_short, immune_percentage, Population_totale, Part_population_rurale,
+           all_of(intersect(pc2_vars, names(africa_data))))
+  
+  # Calculer score composite PC2 (inverser mortalité maternelle car négative)
+  pc2_data <- country_pc2[, intersect(pc2_vars, names(country_pc2))]
+  if(ncol(pc2_data) > 0) {
+    if("Risque_mortalite_maternelle" %in% names(pc2_data)) {
+      pc2_data$Risque_mortalite_maternelle <- -pc2_data$Risque_mortalite_maternelle
+    }
+    pc2_scaled <- as.data.frame(scale(pc2_data))
+    country_pc2$pc2_score <- rowMeans(pc2_scaled, na.rm = TRUE)
+  } else {
+    country_pc2$pc2_score <- 0
+  }
+  
+  # Score de priorité sociale (plus bas = plus prioritaire)
+  country_pc2$priority_social <- rescale(-country_pc2$pc2_score, to = c(0, 100))
+  
+  # Identifier zones à faible inclusion sociale
+  social_priorities <- country_pc2 %>%
+    filter(!is.na(priority_social), !is.na(immune_percentage)) %>%
+    group_by(region_short) %>%
+    arrange(desc(priority_social)) %>%
+    slice_head(n = 8) %>%
+    ungroup()
+  
+  cat("PAYS PRIORITAIRES POUR MOBILISATION COMMUNAUTAIRE:\n")
+  for(region in c("WCAR", "ESAR")) {
+    if(any(social_priorities$region_short == region)) {
+      cat(paste0("\n", region, ":\n"))
+      region_social <- social_priorities %>% filter(region_short == region)
+      for(i in 1:min(5, nrow(region_social))) {
+        dep_sante <- ifelse(is.na(region_social$Depenses_sante_PIB[i]), "N/A", 
+                            sprintf("%.1f", region_social$Depenses_sante_PIB[i]))
+        immunite_val <- ifelse(is.na(region_social$immune_percentage[i]), "N/A",
+                               sprintf("%.1f", region_social$immune_percentage[i]))
+        cat(sprintf("%d. %s (Inclusion: %.1f, Dép.santé: %s%% PIB, Immunité: %s%%)\n", 
+                    i, region_social$country.x[i], region_social$priority_social[i],
+                    dep_sante, immunite_val))
+      }
+    }
+  }
+  
+  # Calcul besoins en agents de santé communautaires
+  community_needs <- social_priorities %>%
+    mutate(
+      pop_rurale_est = Population_totale * ifelse(is.na(Part_population_rurale), 50, Part_population_rurale) / 100,
+      agents_needed_est = pop_rurale_est / 1000,  # 1 agent/1000 hab ruraux
+      cout_formation_est = agents_needed_est * 500  # $500 par agent
+    ) %>%
+    summarise(
+      pays_cibles = n(),
+      agents_totaux = sum(agents_needed_est, na.rm = TRUE),
+      cout_formation = sum(cout_formation_est, na.rm = TRUE),
+      pop_rurale_totale = sum(pop_rurale_est, na.rm = TRUE),
+      .groups = "drop"
+    )
+  
+  cat(sprintf("\nBESOINS MOBILISATION COMMUNAUTAIRE:\n"))
+  cat(sprintf("- %d pays prioritaires\n", community_needs$pays_cibles))
+  cat(sprintf("- Agents communautaires nécessaires: %s\n", format(round(community_needs$agents_totaux, 0), big.mark = ",")))
+  cat(sprintf("- Coût formation estimé: $%s\n", format(round(community_needs$cout_formation, 0), big.mark = ",")))
+  cat(sprintf("- Population rurale ciblée: %s\n", format(round(community_needs$pop_rurale_totale, 0), big.mark = ",")))
+  
+  return(list(data = social_priorities, needs = community_needs))
+}
+
+# ===== 4. AXE 3: STRATÉGIES LAST-MILE (Contraintes Démographiques) =====
+
+analyze_lastmile_strategies <- function(africa_data) {
+  
+  cat("\n\n=== AXE 3: STRATÉGIES LAST-MILE ===\n")
+  cat("Transformation des contraintes démographiques (-0.84 en opportunités)\n\n")
+  
+  # Variables PC3 (Structure démographique et accès aux services)
+  pc3_vars <- c("Population_agee_65_plus", "Acces_eau_potable", "Acces_electricite",
+                "Lits_hospitaliers_pour_1000", "Part_population_rurale")
+  
+  # Calculer défis logistiques
+  country_pc3 <- africa_data %>%
+    filter(!is.na(country.x)) %>%
+    group_by(country.x, region_short) %>%
+    arrange(desc(year)) %>%
+    slice(1) %>%
+    ungroup() %>%
+    select(country.x, region_short, immune_percentage, Population_totale,
+           all_of(intersect(pc3_vars, names(africa_data))))
+  
+  # Score défis logistiques (plus élevé = plus de défis = plus d'opportunités last-mile)
+  country_pc3$rural_challenge <- ifelse(!is.na(country_pc3$Part_population_rurale), 
+                                        country_pc3$Part_population_rurale, 50)
+  country_pc3$infrastructure_challenge <- ifelse(!is.na(country_pc3$Acces_electricite), 
+                                                 100 - country_pc3$Acces_electricite, 50)
+  country_pc3$water_challenge <- ifelse(!is.na(country_pc3$Acces_eau_potable), 
+                                        100 - country_pc3$Acces_eau_potable, 30)
+  
+  country_pc3$lastmile_opportunity <- (country_pc3$rural_challenge + 
+                                         country_pc3$infrastructure_challenge + 
+                                         country_pc3$water_challenge) / 3
+  
+  # Pays avec plus grandes opportunités last-mile
+  lastmile_priorities <- country_pc3 %>%
+    filter(!is.na(lastmile_opportunity), !is.na(immune_percentage)) %>%
+    group_by(region_short) %>%
+    arrange(desc(lastmile_opportunity)) %>%
+    slice_head(n = 8) %>%
+    ungroup()
+  
+  cat("PAYS PRIORITAIRES POUR STRATÉGIES LAST-MILE:\n")
+  for(region in c("WCAR", "ESAR")) {
+    if(any(lastmile_priorities$region_short == region)) {
+      cat(paste0("\n", region, ":\n"))
+      region_lastmile <- lastmile_priorities %>% filter(region_short == region)
+      for(i in 1:min(5, nrow(region_lastmile))) {
+        pop_rural <- ifelse(is.na(region_lastmile$Part_population_rurale[i]), "N/A", 
+                            sprintf("%.1f", region_lastmile$Part_population_rurale[i]))
+        acces_elec <- ifelse(is.na(region_lastmile$Acces_electricite[i]), "N/A", 
+                             sprintf("%.1f", region_lastmile$Acces_electricite[i]))
+        immunite_val <- ifelse(is.na(region_lastmile$immune_percentage[i]), "N/A",
+                               sprintf("%.1f", region_lastmile$immune_percentage[i]))
+        cat(sprintf("%d. %s (Opportunité: %.1f, Pop.rurale: %s%%, Accès élec: %s%%, Immunité: %s%%)\n", 
+                    i, region_lastmile$country.x[i], region_lastmile$lastmile_opportunity[i],
+                    pop_rural, acces_elec, immunite_val))
+      }
+    }
+  }
+  
+  # Calcul besoins logistiques
+  lastmile_needs <- lastmile_priorities %>%
+    mutate(
+      pop_rurale = Population_totale * rural_challenge / 100,
+      unites_mobiles = ceiling(pop_rurale / 50000),  # 1 unité mobile/50k hab ruraux
+      points_froid = ceiling(pop_rurale / 25000),    # 1 point froid/25k hab
+      cout_unitaire = unites_mobiles * 25000 + points_froid * 15000  # Coûts équipement
+    ) %>%
+    summarise(
+      pays_cibles = n(),
+      unites_mobiles_total = sum(unites_mobiles, na.rm = TRUE),
+      points_froid_total = sum(points_froid, na.rm = TRUE),
+      cout_logistique = sum(cout_unitaire, na.rm = TRUE),
+      pop_rurale_ciblee = sum(pop_rurale, na.rm = TRUE),
+      .groups = "drop"
+    )
+  
+  cat(sprintf("\nBESOINS STRATÉGIES LAST-MILE:\n"))
+  cat(sprintf("- %d pays prioritaires\n", lastmile_needs$pays_cibles))
+  cat(sprintf("- Unités mobiles nécessaires: %d\n", lastmile_needs$unites_mobiles_total))
+  cat(sprintf("- Points chaîne froid: %d\n", lastmile_needs$points_froid_total))
+  cat(sprintf("- Coût infrastructure: $%s\n", format(lastmile_needs$cout_logistique, big.mark = ",")))
+  cat(sprintf("- Population rurale ciblée: %s\n", format(round(lastmile_needs$pop_rurale_ciblee, 0), big.mark = ",")))
+  
+  return(list(data = lastmile_priorities, needs = lastmile_needs))
+}
+
+# ===== 5. VISUALISATIONS STRATÉGIQUES =====
+
+create_strategic_visualizations <- function(geo_results, social_results, lastmile_results) {
+  
+  # 1. Graphique priorités par axe et région
+  priority_comparison <- function() {
+    
+    # Combiner les données des 3 axes
+    geo_data <- geo_results$data %>% 
+      select(country.x, region_short, priority_geo, immune_percentage) %>%
+      rename(priority_score = priority_geo, immunite = immune_percentage) %>%
+      mutate(strategic_axis = "Optimisation\nGéographique")
+    
+    social_data <- social_results$data %>% 
+      select(country.x, region_short, priority_social, immune_percentage) %>%
+      rename(priority_score = priority_social, immunite = immune_percentage) %>%
+      mutate(strategic_axis = "Mobilisation\nCommunautaire")
+    
+    lastmile_data <- lastmile_results$data %>% 
+      select(country.x, region_short, lastmile_opportunity, immune_percentage) %>%
+      rename(priority_score = lastmile_opportunity, immunite = immune_percentage) %>%
+      mutate(strategic_axis = "Stratégies\nLast-Mile")
+    
+    combined_data <- bind_rows(geo_data, social_data, lastmile_data)
+    
+    p1 <- ggplot(combined_data, aes(x = strategic_axis, y = priority_score, fill = region_short)) +
+      geom_boxplot(alpha = 0.7) +
+      geom_jitter(width = 0.2, alpha = 0.6, size = 1) +
+      facet_wrap(~region_short, ncol = 2) +
+      scale_fill_brewer(type = "qual", palette = "Set2") +
+      labs(title = "Distribution des Scores de Priorité par Axe Stratégique",
+           subtitle = "WCAR vs ESAR - Boîtes à moustaches avec points individuels",
+           x = "Axes Stratégiques", y = "Score de Priorité (0-100)",
+           fill = "Région") +
+      theme_minimal() +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1),
+            legend.position = "none",
+            strip.text = element_text(size = 12, face = "bold"))
+    
+    return(p1)
+  }
+  
+  # 2. Impact vs Coût des 3 axes
+  impact_cost_analysis <- function() {
+    
+    strategy_data <- data.frame(
+      axe = c("Optimisation\nGéographique", "Mobilisation\nCommunautaire", "Stratégies\nLast-Mile"),
+      impact_potentiel = c(2.89, 1.79, 0.84),
+      cout_relatif = c(1, 2.5, 4),
+      roi = c(2.89, 0.72, 0.21),
+      pays_cibles = c(nrow(geo_results$data), nrow(social_results$data), nrow(lastmile_results$data))
+    )
+    
+    p2 <- ggplot(strategy_data, aes(x = cout_relatif, y = impact_potentiel)) +
+      geom_point(aes(color = axe, size = pays_cibles), alpha = 0.8) +
+      geom_text(aes(label = paste0("ROI: ", round(roi, 2))), vjust = -1.5, size = 3, fontface = "bold") +
+      geom_text(aes(label = axe), vjust = 2.5, size = 3) +
+      scale_size_continuous(range = c(6, 12), name = "Pays\nCiblés") +
+      scale_color_brewer(type = "qual", palette = "Set1", guide = "none") +
+      scale_x_continuous(breaks = 1:4, labels = c("Faible", "Modéré", "Élevé", "Très élevé")) +
+      labs(title = "Analyse Coût-Bénéfice des Axes Stratégiques UNICEF",
+           subtitle = "Taille des bulles = nombre de pays ciblés",
+           x = "Coût Relatif de Mise en Œuvre", 
+           y = "Impact Potentiel (Coefficient de Régression)") +
+      theme_minimal() +
+      theme(legend.position = "right")
+    
+    return(p2)
+  }
+  
+  # 3. Immunité par priorité
+  immunity_priority_correlation <- function() {
+    
+    # Combiner toutes les données avec leurs priorités
+    all_priorities <- bind_rows(
+      geo_results$data %>% select(country.x, region_short, immune_percentage, priority_geo) %>% 
+        rename(priority = priority_geo, immunite = immune_percentage) %>% mutate(axis = "Géographique"),
+      social_results$data %>% select(country.x, region_short, immune_percentage, priority_social) %>% 
+        rename(priority = priority_social, immunite = immune_percentage) %>% mutate(axis = "Communautaire"),
+      lastmile_results$data %>% select(country.x, region_short, immune_percentage, lastmile_opportunity) %>% 
+        rename(priority = lastmile_opportunity, immunite = immune_percentage) %>% mutate(axis = "Last-Mile")
+    )
+    
+    p3 <- ggplot(all_priorities, aes(x = priority, y = immunite)) +
+      geom_point(aes(color = region_short), alpha = 0.7, size = 2) +
+      geom_smooth(method = "lm", se = TRUE, alpha = 0.3) +
+      facet_wrap(~axis, scales = "free_x") +
+      scale_color_brewer(type = "qual", palette = "Set2", name = "Région") +
+      labs(title = "Relation entre Score de Priorité et Pourcentage d'Immunité",
+           subtitle = "Corrélation par axe stratégique - WCAR vs ESAR",
+           x = "Score de Priorité", y = "Pourcentage d'Immunité (%)") +
+      theme_minimal() +
+      theme(strip.text = element_text(face = "bold"))
+    
+    return(p3)
+  }
+  
+  return(list(
+    comparison = priority_comparison(),
+    impact_cost = impact_cost_analysis(),
+    immunity_correlation = immunity_priority_correlation()
+  ))
+}
+
+# ===== 6. SYNTHÈSE STRATÉGIQUE =====
+
+strategic_synthesis <- function(geo_results, social_results, lastmile_results) {
+  
+  cat("\n\n=== SYNTHÈSE STRATÉGIQUE UNICEF AFRIQUE ===\n\n")
+  
+  # ROI calculé
+  total_impact <- 2.89 + 1.79 + 0.84
+  geo_roi <- 2.89 / 1.0
+  social_roi <- 1.79 / 2.5
+  lastmile_roi <- 0.84 / 4.0
+  
+  cat("RETOUR SUR INVESTISSEMENT PAR AXE:\n")
+  cat(sprintf("1. Optimisation Géographique: %.2f (Impact %.2f / Coût relatif 1.0)\n", geo_roi, 2.89))
+  cat(sprintf("2. Mobilisation Communautaire: %.2f (Impact %.2f / Coût relatif 2.5)\n", social_roi, 1.79))
+  cat(sprintf("3. Stratégies Last-Mile: %.2f (Impact %.2f / Coût relatif 4.0)\n", lastmile_roi, 0.84))
+  
+  cat("\nRECOMMANDATIONS D'ALLOCATION BUDGÉTAIRE:\n")
+  budget_geo <- 55
+  budget_social <- 30
+  budget_lastmile <- 15
+  
+  cat(sprintf("- Axe Géographique: %d%% du budget (ROI optimal: %.2f)\n", budget_geo, geo_roi))
+  cat(sprintf("- Axe Communautaire: %d%% du budget (ROI modéré: %.2f)\n", budget_social, social_roi))
+  cat(sprintf("- Axe Last-Mile: %d%% du budget (investissement long terme: %.2f)\n", budget_lastmile, lastmile_roi))
+  
+  cat("\nPAYS TOTAUX IDENTIFIÉS:\n")
+  cat(sprintf("- Priorités géographiques: %d pays\n", nrow(geo_results$data)))
+  cat(sprintf("- Priorités communautaires: %d pays\n", nrow(social_results$data)))
+  cat(sprintf("- Priorités last-mile: %d pays\n", nrow(lastmile_results$data)))
+  
+  cat("\nIMPACT GLOBAL ESTIMÉ:\n")
+  cat(sprintf("- Coefficient d'amélioration combiné: +%.2f points d'immunité\n", total_impact))
+  cat(sprintf("- Objectif: atteindre 95%% d'immunité dans les pays prioritaires\n"))
+  
+  return(list(
+    roi_scores = c(geo_roi, social_roi, lastmile_roi),
+    budget_allocation = c(budget_geo, budget_social, budget_lastmile),
+    total_impact = total_impact
+  ))
+}
+
+# ===== 7. FONCTION PRINCIPALE =====
+
+conduct_strategic_analysis <- function(data_final) {
+  
+  cat("ANALYSE STRATÉGIQUE UNICEF - RÉGIONS AFRICAINES (VERSION IMMUNITÉ)\n")
+  cat(paste0(rep("=", 65), collapse = ""), "\n\n")
+  
+  # Vérifier que la colonne immune_percentage existe
+  if(!"immune_percentage" %in% names(data_final)) {
+    cat("ERREUR: La colonne 'immune_percentage' n'existe pas dans les données.\n")
+    cat("Colonnes disponibles:", paste(names(data_final), collapse = ", "), "\n")
+    return(NULL)
+  }
+  
+  # Filtrer données Afrique
+  africa_data <- filter_africa_regions(data_final)
+  
+  cat(sprintf("Données chargées: %d observations pour WCAR et ESAR\n", nrow(africa_data)))
+  cat(sprintf("Pays uniques: %d\n", length(unique(africa_data$country.x[!is.na(africa_data$country.x)]))))
+  
+  if(nrow(africa_data) > 0 && !all(is.na(africa_data$year))) {
+    cat(sprintf("Période: %.0f - %.0f\n\n", min(africa_data$year, na.rm = TRUE), max(africa_data$year, na.rm = TRUE)))
+  } else {
+    cat("Aucune donnée temporelle disponible\n\n")
+  }
+  
+  # Vérifier si nous avons des données avant de continuer
+  if(nrow(africa_data) == 0) {
+    cat("ERREUR: Aucune donnée trouvée pour les régions africaines.\n")
+    cat("Vérifiez les noms des régions dans votre dataset.\n")
+    return(NULL)
+  }
+  
+  # Analyses par axe stratégique
+  geo_results <- analyze_geographic_optimization(africa_data)
+  social_results <- analyze_community_mobilization(africa_data)
+  lastmile_results <- analyze_lastmile_strategies(africa_data)
+  
+  # Visualisations
+  plots <- create_strategic_visualizations(geo_results, social_results, lastmile_results)
+  
+  # Synthèse
+  synthesis <- strategic_synthesis(geo_results, social_results, lastmile_results)
+  
+  # Afficher graphiques
+  print(plots$comparison)
+  print(plots$impact_cost)
+  print(plots$immunity_correlation)
+  
+  # Exporter résultats
+  write.csv(geo_results$data, "data/processed/priorites_geographiques_afrique_immunite.csv", row.names = FALSE)
+  write.csv(social_results$data, "data/processed/priorites_communautaires_afrique_immunite.csv", row.names = FALSE)
+  write.csv(lastmile_results$data, "data/processed/priorites_lastmile_afrique_immunite.csv", row.names = FALSE)
+  
+  cat("\n=== FICHIERS EXPORTÉS ===\n")
+  cat("- priorites_geographiques_afrique_immunite.csv\n")
+  cat("- priorites_communautaires_afrique_immunite.csv\n") 
+  cat("- priorites_lastmile_afrique_immunite.csv\n\n")
+  
+  return(list(
+    africa_data = africa_data,
+    geographic = geo_results,
+    community = social_results,
+    lastmile = lastmile_results,
+    visualizations = plots,
+    synthesis = synthesis
+  ))
+}
+
+# ===== 8. ANALYSE COMPLÉMENTAIRE : OVERLAP DES PRIORITÉS =====
+
+analyze_priority_overlap <- function(geo_results, social_results, lastmile_results) {
+  
+  cat("=== ANALYSE DE CHEVAUCHEMENT DES PRIORITÉS ===\n\n")
+  
+  # Créer un tableau de comparaison des priorités
+  geo_top5 <- geo_results$data %>% slice_head(n = 5) %>% pull(country.x)
+  social_top5 <- social_results$data %>% slice_head(n = 5) %>% pull(country.x) 
+  lastmile_top5 <- lastmile_results$data %>% slice_head(n = 5) %>% pull(country.x)
+  
+  all_countries <- unique(c(geo_top5, social_top5, lastmile_top5))
+  
+  overlap_matrix <- data.frame(
+    country = all_countries,
+    geographic = all_countries %in% geo_top5,
+    community = all_countries %in% social_top5,
+    lastmile = all_countries %in% lastmile_top5
+  )
+  
+  overlap_matrix$total_axes <- rowSums(overlap_matrix[,2:4])
+  
+  cat("PAYS PRIORITAIRES DANS PLUSIEURS AXES:\n")
+  multi_axis <- overlap_matrix %>% filter(total_axes >= 2) %>% arrange(desc(total_axes))
+  
+  if(nrow(multi_axis) > 0) {
+    for(i in 1:nrow(multi_axis)) {
+      axes <- c()
+      if(multi_axis$geographic[i]) axes <- c(axes, "Géo")
+      if(multi_axis$community[i]) axes <- c(axes, "Com") 
+      if(multi_axis$lastmile[i]) axes <- c(axes, "Last-Mile")
+      cat(sprintf("- %s: %s (%d axes)\n", multi_axis$country[i], 
+                  paste(axes, collapse = ", "), multi_axis$total_axes[i]))
+    }
+  } else {
+    cat("Aucun pays n'apparaît dans plusieurs axes (spécialisation élevée)\n")
+  }
+  
+  cat(sprintf("\nSTATISTIQUES DE CHEVAUCHEMENT:\n"))
+  cat(sprintf("- Pays uniques identifiés: %d\n", length(all_countries)))
+  cat(sprintf("- Pays multi-axes: %d\n", sum(overlap_matrix$total_axes >= 2)))
+  cat(sprintf("- Spécialisation: %.1f%% des pays sont spécifiques à un axe\n", 
+              100 * sum(overlap_matrix$total_axes == 1) / length(all_countries)))
+  
+  return(overlap_matrix)
+}
+
+# ===== 9. RECOMMANDATIONS OPÉRATIONNELLES =====
+
+generate_operational_recommendations <- function(strategic_results) {
+  
+  cat("\n\n=== RECOMMANDATIONS OPÉRATIONNELLES DÉTAILLÉES ===\n\n")
+  
+  cat("PHASE 1 (0-6 MOIS) - OPTIMISATION GÉOGRAPHIQUE:\n")
+  cat("Réallouer immédiatement 30% des doses vers les pays identifiés\n")
+  cat("Établir des partenariats logistiques avec les gouvernements locaux\n")
+  cat("Former les équipes terrain sur les critères de priorisation géographique\n")
+  cat("Mettre en place un système de monitoring temps réel de l'immunité\n\n")
+  
+  cat("PHASE 2 (6-12 MOIS) - MOBILISATION COMMUNAUTAIRE:\n")
+  cat("Recruter et former les agents de santé communautaires identifiés\n")
+  cat("Développer du matériel de sensibilisation culturellement adapté\n")  
+  cat("Établir des partenariats avec les leaders communautaires et religieux\n")
+  cat("Lancer des campagnes de communication de masse ciblées\n\n")
+  
+  cat("PHASE 3 (12-18 MOIS) - DÉPLOIEMENT LAST-MILE:\n")
+  cat("Procurer et déployer les unités mobiles de vaccination\n")
+  cat("Installer les points de chaîne du froid décentralisés\n")
+  cat("Former les équipes mobiles aux stratégies de terrain\n")
+  cat("Tester et optimiser les circuits logistiques last-mile\n\n")
+  
+  cat("PHASE 4 (18-24 MOIS) - CONSOLIDATION ET ÉVALUATION:\n")
+  cat("Évaluer l'impact des trois axes stratégiques sur l'immunité\n")
+  cat("Ajuster les allocations budgétaires basées sur les résultats\n")
+  cat("Documenter les meilleures pratiques pour réplication\n")
+  cat("Planifier l'expansion vers d'autres régions\n\n")
+  
+  # Calculer les ressources nécessaires
+  total_agents <- strategic_results$community$needs$agents_totaux
+  total_mobile_units <- strategic_results$lastmile$needs$unites_mobiles_total
+  total_cold_points <- strategic_results$lastmile$needs$points_froid_total
+  
+  cat("RESSOURCES TOTALES NÉCESSAIRES:\n")
+  cat(sprintf("- Agents communautaires: %s\n", format(round(total_agents, 0), big.mark = ",")))
+  cat(sprintf("- Unités mobiles: %d\n", total_mobile_units))
+  cat(sprintf("- Points chaîne froid: %d\n", total_cold_points))
+  
+  total_cost <- strategic_results$community$needs$cout_formation + strategic_results$lastmile$needs$cout_logistique
+  cat(sprintf("- Coût total estimé: $%s\n", format(total_cost, big.mark = ",")))
+  cat(sprintf("- ROI projeté: %.1fx sur 2 ans\n", strategic_results$synthesis$total_impact))
+  
+  # Métriques d'immunité spécifiques
+  cat("\nOBJECTIFS D'IMMUNITÉ:\n")
+  cat("- Cible générale: 95% d'immunité dans tous les pays prioritaires\n")
+  cat("- Amélioration attendue: +5.5 points d'immunité en moyenne\n")
+  cat("- Réduction des épidémies: 70% dans les zones ciblées\n")
+  cat("- Protection communautaire: seuil d'immunité collective atteint\n")
+}
+
+# ===== 10. ANALYSE SPÉCIFIQUE IMMUNITÉ =====
+
+analyze_immunity_gaps <- function(africa_data) {
+  
+  cat("\n\n=== ANALYSE DES GAPS D'IMMUNITÉ ===\n\n")
+  
+  # Analyse des gaps d'immunité par région
+  immunity_analysis <- africa_data %>%
+    filter(!is.na(immune_percentage), !is.na(region_short)) %>%
+    group_by(region_short) %>%
+    summarise(
+      pays_total = n(),
+      immunite_moyenne = mean(immune_percentage, na.rm = TRUE),
+      immunite_mediane = median(immune_percentage, na.rm = TRUE),
+      immunite_min = min(immune_percentage, na.rm = TRUE),
+      immunite_max = max(immune_percentage, na.rm = TRUE),
+      pays_sous_80 = sum(immune_percentage < 80, na.rm = TRUE),
+      pays_sous_70 = sum(immune_percentage < 70, na.rm = TRUE),
+      gap_moyen = 95 - immunite_moyenne,
+      .groups = "drop"
+    )
+  
+  cat("SITUATION DE L'IMMUNITÉ PAR RÉGION:\n")
+  for(i in 1:nrow(immunity_analysis)) {
+    region <- immunity_analysis$region_short[i]
+    cat(sprintf("\n%s:\n", region))
+    cat(sprintf("- Immunité moyenne: %.1f%% (médiane: %.1f%%)\n", 
+                immunity_analysis$immunite_moyenne[i], immunity_analysis$immunite_mediane[i]))
+    cat(sprintf("- Écart min-max: %.1f%% - %.1f%%\n", 
+                immunity_analysis$immunite_min[i], immunity_analysis$immunite_max[i]))
+    cat(sprintf("- Pays < 80%%: %d/%d (%.1f%%)\n", 
+                immunity_analysis$pays_sous_80[i], immunity_analysis$pays_total[i],
+                100 * immunity_analysis$pays_sous_80[i] / immunity_analysis$pays_total[i]))
+    cat(sprintf("- Pays < 70%%: %d/%d (%.1f%%)\n", 
+                immunity_analysis$pays_sous_70[i], immunity_analysis$pays_total[i],
+                100 * immunity_analysis$pays_sous_70[i] / immunity_analysis$pays_total[i]))
+    cat(sprintf("- Gap moyen vers 95%%: %.1f points\n", immunity_analysis$gap_moyen[i]))
+  }
+  
+  # Identifier les pays les plus critiques
+  critical_countries <- africa_data %>%
+    filter(!is.na(immune_percentage), immune_percentage < 70) %>%
+    arrange(immune_percentage) %>%
+    select(country.x, region_short, immune_percentage, Population_totale)
+  
+  if(nrow(critical_countries) > 0) {
+    cat(sprintf("\nPAYS EN SITUATION CRITIQUE (< 70%% d'immunité):\n"))
+    for(i in 1:min(10, nrow(critical_countries))) {
+      pop_val <- ifelse(is.na(critical_countries$Population_totale[i]), "N/A",
+                        format(critical_countries$Population_totale[i], big.mark = ","))
+      cat(sprintf("%d. %s (%s): %.1f%% d'immunité (Pop: %s)\n", 
+                  i, critical_countries$country.x[i], critical_countries$region_short[i],
+                  critical_countries$immune_percentage[i], pop_val))
+    }
+  }
+  
+  return(immunity_analysis)
+}
+
+# ===== EXÉCUTION COMPLÈTE =====
+
+# Fonction principale d'exécution
+run_complete_immunity_analysis <- function(data_final) {
+  
+  cat("LANCEMENT DE L'ANALYSE STRATÉGIQUE BASÉE SUR L'IMMUNITÉ...\n")
+  cat(paste0(rep("=", 70), collapse = ""), "\n\n")
+  
+  # 1. Analyse stratégique principale
+  strategic_results <- conduct_strategic_analysis(data_final)
+  
+  if(!is.null(strategic_results)) {
+    # 2. Analyse des gaps d'immunité
+    immunity_gaps <- analyze_immunity_gaps(strategic_results$africa_data)
+    
+    # 3. Analyse de chevauchement des priorités
+    overlap_analysis <- analyze_priority_overlap(strategic_results$geographic, 
+                                                 strategic_results$community, 
+                                                 strategic_results$lastmile)
+    
+    # 4. Recommandations opérationnelles
+    generate_operational_recommendations(strategic_results)
+    
+    # 5. Résumé final
+    cat("\n\n=== RÉSUMÉ EXÉCUTIF ===\n")
+    cat("Cette analyse identifie les stratégies optimales pour améliorer l'immunité\n")
+    cat("dans les régions WCAR et ESAR, avec un focus sur:\n")
+    cat("1. L'optimisation géographique (ROI: 2.89)\n")
+    cat("2. La mobilisation communautaire (ROI: 0.72)\n")
+    cat("3. Les stratégies last-mile (ROI: 0.21)\n\n")
+    cat("Impact attendu: +5.5 points d'immunité en moyenne\n")
+    cat("Objectif: 95% d'immunité dans tous les pays prioritaires\n")
+    
+    return(list(
+      strategic = strategic_results,
+      immunity_gaps = immunity_gaps,
+      overlap = overlap_analysis
+    ))
+  } else {
+    cat("Échec de l'analyse. Vérifiez vos données d'entrée.\n")
+    return(NULL)
+  }
+}
+
+# Pour exécuter l'analyse complète, utilisez:
+strategic_results <- run_complete_immunity_analysis(data_final)
+
+```
+```{r message=FALSE, warning=FALSE, include=FALSE}
+#EXPORT DES GRAPHIQUES
+export_strategic_plots_simple <- function(strategic_results, output_dir = "output/plots/plots_unicef", 
+                                          width = 12, height = 8, dpi = 300) {
+  
+  # Créer le dossier de sortie s'il n'existe pas
+  if (!dir.exists(output_dir)) {
+    dir.create(output_dir, recursive = TRUE)
+    cat(sprintf("Dossier créé: %s\n", output_dir))
+  }
+  
+  # Créer les sous-dossiers pour PNG et SVG
+  png_dir <- file.path(output_dir, "png")
+  svg_dir <- file.path(output_dir, "svg")
+  
+  if (!dir.exists(png_dir)) {
+    dir.create(png_dir, recursive = TRUE)
+  }
+  
+  if (!dir.exists(svg_dir)) {
+    dir.create(svg_dir, recursive = TRUE)
+  }
+  
+  cat("=== EXPORT DES GRAPHIQUES STRATÉGIQUES (PNG + SVG) ===\n\n")
+  
+  # Fonction interne pour sauvegarder en double format
+  save_dual_format <- function(plot, filename, plot_width = width, plot_height = height, plot_dpi = dpi) {
+    # PNG
+    png_file <- file.path(png_dir, paste0(filename, ".png"))
+    ggsave(png_file, plot = plot, 
+           width = plot_width, height = plot_height, dpi = plot_dpi, bg = "white")
+    
+    # SVG
+    svg_file <- file.path(svg_dir, paste0(filename, ".svg"))
+    ggsave(svg_file, plot = plot, 
+           width = plot_width, height = plot_height, bg = "white")
+    
+    cat(sprintf("✓ Exporté: %s (PNG + SVG)\n", filename))
+  }
+  
+  # Vérifier que les visualisations existent
+  if (!exists("strategic_results") || is.null(strategic_results$strategic$visualizations)) {
+    stop("Erreur: strategic_results$strategic$visualizations n'existe pas")
+  }
+  
+  plots <- strategic_results$strategic$visualizations
+  
+  # Graphiques principaux uniquement (ceux qui existent)
+  if (!is.null(plots$comparison)) {
+    save_dual_format(plots$comparison, "01_comparaison_priorites_axes")
+  }
+  
+  if (!is.null(plots$impact_cost)) {
+    save_dual_format(plots$impact_cost, "02_analyse_cout_benefice")
+  }
+  
+  if (!is.null(plots$immunity_correlation)) {
+    save_dual_format(plots$immunity_correlation, "03_correlation_immunite_priorite")
+  }
+  
+  # Export PDF des graphiques existants uniquement
+  pdf_file <- file.path(output_dir, "rapport_graphiques_unicef.pdf")
+  pdf(pdf_file, width = width, height = height)
+  
+  if (!is.null(plots$comparison)) print(plots$comparison)
+  if (!is.null(plots$impact_cost)) print(plots$impact_cost)
+  if (!is.null(plots$immunity_correlation)) print(plots$immunity_correlation)
+  
+  dev.off()
+  cat(sprintf("✓ Exporté: rapport_graphiques_unicef.pdf\n"))
+  
+  # Compter les fichiers créés
+  png_files <- list.files(png_dir, pattern = "\\.png$")
+  svg_files <- list.files(svg_dir, pattern = "\\.svg$")
+  
+  cat(sprintf("\n=== RÉSUMÉ EXPORT ===\n"))
+  cat(sprintf("- Dossier principal: %s\n", output_dir))
+  cat(sprintf("- Nombre de fichiers PNG: %d\n", length(png_files)))
+  cat(sprintf("- Nombre de fichiers SVG: %d\n", length(svg_files)))
+  cat(sprintf("- Fichier PDF: 1\n"))
+  cat(sprintf("- Résolution PNG: %d DPI\n", dpi))
+  cat(sprintf("- Dimensions: %d x %d pouces\n\n", width, height))
+  
+  return(list(
+    main_dir = output_dir,
+    png_dir = png_dir,
+    svg_dir = svg_dir,
+    pdf_file = pdf_file
+  ))
+}
+
+# Version encore plus simple - juste pour les 3 graphiques principaux
+export_main_plots <- function(comparison_plot, impact_cost_plot, immunity_plot, 
+                              output_dir = "output/plots/main_plots",
+                              width = 12, height = 8, dpi = 300) {
+  
+  if (!dir.exists(output_dir)) {
+    dir.create(output_dir, recursive = TRUE)
+  }
+  
+  # PNG
+  ggsave(file.path(output_dir, "01_comparaison_priorites.png"), 
+         comparison_plot, width = width, height = height, dpi = dpi, bg = "white")
+  
+  ggsave(file.path(output_dir, "02_cout_benefice.png"), 
+         impact_cost_plot, width = width, height = height, dpi = dpi, bg = "white")
+  
+  ggsave(file.path(output_dir, "03_immunite_correlation.png"), 
+         immunity_plot, width = width, height = height, dpi = dpi, bg = "white")
+  
+  # SVG
+  ggsave(file.path(output_dir, "01_comparaison_priorites.svg"), 
+         comparison_plot, width = width, height = height, bg = "white")
+  
+  ggsave(file.path(output_dir, "02_cout_benefice.svg"), 
+         impact_cost_plot, width = width, height = height, bg = "white")
+  
+  ggsave(file.path(output_dir, "03_immunite_correlation.svg"), 
+         immunity_plot, width = width, height = height, bg = "white")
+  
+  cat("✓ 6 fichiers exportés (3 PNG + 3 SVG)\n")
+  cat(sprintf("✓ Dossier: %s\n", output_dir))
+  
+  return(output_dir)
+}
+
+# Executer avec
+export_strategic_plots_simple(strategic_results)
+
+```
+
+### 1. L'optimisation géographique des vaccins
+
+Commencer là où l’impact est maximal, pour gagner vite et sauver le plus d’enfants dès les premiers mois. Ici, avec un impact de (2,89), chaque action menée rapporte presque trois fois son impact.
+
+Pays prioritaires :
+
+WCAR : Niger, Chad, Burkina Faso, Central African Republic, Guinea
+
+ESAR : Burundi, Malawi, Rwanda, South Sudan, Ethiopia
+
+Approche opérationnelle : réallouer immédiatement 30 % des doses vers ces 10 pays.
+
+Impact attendu : combler un gap moyen de 8,5 points d’immunité, protéger plus de 358 millions de personnes.
+
+### 2. Mobilisation communautaire
+
+Sans la confiance et l’adhésion des familles, aucune dose n’atteint les enfants. Cet axe permet de gagner les cœurs des populations rurales pour sauver les vies.
+
+Pays prioritaires :
+
+WCAR : Equatorial Guinea, Senegal, Niger, Gabon, Nigeria
+
+ESAR : United Republic of Tanzania, Comoros, Madagascar, Ethiopia, Somalia
+
+Approche opérationnelle :
+
+-   Recruter et former 430 559 agents communautaires, issus des communautés elles-mêmes.
+-   Établir des alliances stratégiques avec chefs religieux, leaders traditionnels et influenceurs locaux.
+-   Diffuser des messages culturellement adaptés pour briser les résistances.
+
+Impact attendu : toucher directement 430 millions de personnes en zones rurales, et lever les freins à la vaccination dans les zones les plus méfiantes.
+
+### 3. Campagnes de vaccination mobiles
+
+Là où la géographie est un obstacle, la logistique devient une arme de sauvetage, pour atteindre ces enfants qui n’auront peut-être jamais de vaccin autrement.
+
+Pays prioritaires :
+
+WCAR : Niger, Chad, Burkina Faso, Guinea, Central African Republic
+
+ESAR : Burundi, Rwanda, Malawi, South Sudan, Ethiopia
+
+Approche opérationnelle :
+
+-   Déployer 6 103 unités mobiles et installer 12 199 points de chaîne du froid dans les zones les plus reculées.
+-   Former des équipes mobiles capables de franchir rivières, pistes et zones de conflit.
+-   Créer des itinéraires de vaccination synchronisés avec les marchés, foires et rassemblements locaux.
+
+Impact attendu : desservir 304 millions de ruraux vivant hors d’atteinte des infrastructures classiques, et réduire drastiquement les zones “blanches” de vaccination.
+
+
+# L'immunité collective
+
+Atteindre 95 % de couverture vaccinale dans le monde : c'est le seuil de référence qu'a fixé l'OMS pour atteindre un état de l'humanité où suffisamment de personnes sont immunisées (par vaccination ou infection naturelle) afin que plus aucune maladie infectieuse ne puisse se propager. Mais, qu'est-ce que cela révèle concrètement ?
+
+## Couverture vaccinale et pourcentage d'immunité
+
+La couverture vaccinale et le pourcentage d'immunité sont étroitement liés. Si la couverture vaccinale mesure la capicité de l'Unicef à toucher tous ceux qui ont besoin de l'être, l'immunité collective, produit de la couverture vaccinale et de l'efficacité du vaccin, reste l'objectif ultime.
+
+L'analyse de corrélation entre les scores de priorité vaccinale et les pourcentages d'immunité dans les régions ESAR et WCAR révèle une relation négative significative. Les données montrent que les zones présentant les scores de priorité les plus élevés par axe stratégique (indicateurs de faible couverture vaccinale) affichent paradoxalement des pourcentages d'immunité supérieurs, avec des valeurs oscillant entre 65% et 72,5% d'immunité pour des scores de priorité variant de 60 à plus.
+
+
+\vspace{5mm}
+
+```{r echo=FALSE, fig.align='center', out.width="90%"}
+knitr::include_graphics("medias/pourcentage.pdf")
+```
+
+\vspace{5mm}
+
+
+Cette corrélation négative s'observe de manière cohérente sur les trois axes stratégiques étudiés (Communautaire, Géographique et Last-Mile), suggérant un phénomène systémique plutôt qu'une anomalie ponctuelle. Les deux régions Unicef présentent des patterns similaires, bien que la région WCAR semble présenter une dispersion légèrement plus importante dans la relation.
+
+
+## Le diable se cache dans les détails
+
+Plusieurs facteurs peuvent expliquer cette relation contre-intuitive.
+
+### Immunité naturelle acquise
+
+Les populations des zones à faible couverture vaccinale peuvent avoir développé une immunité collective par exposition naturelle répétée aux pathogènes. Cette immunité naturelle, bien que potentiellement moins durable que l'immunité vaccinale, peut expliquer les pourcentages élevés observés.
+
+
+### Hétérogénéité géographique et démographique
+
+Les zones prioritaires correspondent souvent à des régions isolées ou difficiles d'accès, où les dynamiques épidémiologiques peuvent différer significativement des zones urbaines mieux couvertes par les programmes de vaccination.
+
+### Facteurs environnementaux et génétiques
+
+Les populations de ces régions peuvent présenter des caractéristiques génétiques ou des expositions environnementales spécifiques influençant leur profil immunitaire.
+
+## La grande question
+
+Cette observation au sujet de l'immunité dans ces régions soulève des questions fondamentales sur l'approche de priorisation des interventions vaccinales. Faut-il vraiment augmenter la couverture vaccinale dans ces régions, si l'immunité des populations vaccinée est déjà aussi solide ?
+
+En réalité, l'étude ne donne aucune information sur la façon dont l'immunité de ces populations a été acquise, ni si elle va durer sur le long terme. Chacun des axes stratégiques proposés restent donc pertinents. Toutefois, certaines considérations importantes sont à prendre en compte.
+
+### Une approche géographique différentiée
+
+Privilégier dans un premier temps les zones combinant faible couverture vaccinale et faible immunité naturelle, afin d'optimiser l'impact sanitaire des interventions.
+
+### Une stratégie communautaire adaptée
+
+Développer des approches spécifiques tenant compte des niveaux d'immunité existants, en adaptant les messages de sensibilisation et les protocoles vaccinaux aux réalités locales.
+
+### Un déploiement progressif du Last-Mile
+
+Mettre en place un monitoring renforcé lors des interventions dans les zones à forte immunité naturelle pour évaluer l'impact réel des campagnes de vaccination.
+
+
+### Un ajustement continu
+
+Établir un système de suivi permettant de mesurer l'évolution conjointe de la couverture vaccinale et de l'immunité réelle, afin d'ajuster les stratégies en temps réel et d'éviter les effets contre-productifs potentiels.
+
+
+# Limites de l'étude
+
+Cette analyse présente plusieurs limites importantes qui doivent être prises en compte dans l'interprétation des résultats :
+
+- Biais de mesure : les méthodes d'évaluation de l'immunité peuvent varier entre régions et ne pas capturer la complexité des mécanismes immunitaires en jeu.
+
+- Variables confondantes : l'étude ne contrôle pas pour des facteurs potentiellement déterminants tels que la densité de population, les pratiques de santé traditionnelles, ou les patterns de mobilité des populations.
+
+- Causalité non établie : la corrélation observée ne permet pas d'établir de relation causale directe entre faible couverture vaccinale et forte immunité.
+
+
+\newpage
+
+# Conclusion
+
+L'observation d'une corrélation négative entre score de priorité vaccinale et immunité constitue un résultat inattendu qui enrichit significativement notre compréhension des dynamiques immunitaires dans les régions ESAR et WCAR. Elle plaide pour une approche plus sophistiquée de la planification des interventions vaccinales, intégrant non seulement les lacunes de couverture mais également l'écosystème immunitaire existant dans chaque contexte spécifique.
+
+En tant qu'acteur clé de la chaîne logistique, de la coordination stratégique et de la mobilisation communautaire, l'Unicef doit repositionner ses priorités pour cibler les zones où les fragilités socio-économiques, l'exclusion sociale et les contraintes d'accès aux services limitent réellement la couverture vaccinale. Cette analyse révèle que les scores de priorité traditionnels, basés uniquement sur les déficits de couverture, peuvent masquer des réalités immunitaires complexes nécessitant une lecture territoriale plus fine.
+
+Une orientation stratégique majeure consiste à déployer des outils de collecte de données plus performants et à garantir l'intégrité des informations recueillies pour évaluer avec précision les performances de la couverture vaccinale en Afrique et dans le monde. Cette amélioration des systèmes d'information permettra à l'Unicef d'adapter ses stratégies de livraison, de communication et de soutien aux systèmes de santé en fonction des spécificités territoriales réelles. Cette analyse ouvre ainsi la voie à une redéfinition des approches programmatiques de l'Unicef , privilégiant une allocation des ressources basée sur une compréhension approfondie des écosystèmes immunitaires locaux pour maximiser l'impact sanitaire des interventions dans ces régions prioritaires.
+
+
+
+# Sources
+
+WUENIC : estimations conjointes OMS/UNICEF de la couverture vaccinale par pays et par antigène, basées sur des rapports officiels et des enquêtes.
+
+WDI : indicateurs socio-économiques mondiaux de la Banque mondiale, incluant des données contextuelles utiles à l’analyse vaccinale.
+
+WHO : statistiques officielles de l’OMS sur la santé mondiale, incluant des indicateurs des systèmes de santé et des campagnes de vaccination.

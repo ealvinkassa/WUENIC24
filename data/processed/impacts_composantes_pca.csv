@@ -1,0 +1,6 @@
+"Composante","Coefficient","Erreur_Standard","P_Value","Significativite","Impact_Type","Impact_Magnitude"
+"`Developpement Socio Economique Global`",2.89362971180482,0.225254623818142,1.59647247502147e-21,"***","Positif","Très Fort"
+"`Stabilite institutionnelle et gouvernance`",-2.36812507225427,0.613559913561375,0.000222168858668078,"***","Négatif","Fort"
+"`Volatilité economiques et pressions sociales`",1.84219439616186,0.666899202784487,0.00704871855524792,"**","Positif","Fort"
+"`Investissements Sociaux et Inclusion`",1.78775053366553,0.288984712851976,2.15025223883184e-08,"***","Positif","Fort"
+"`Structure demographique et acces aux services`",-0.842422102567406,0.477627186521932,0.0814075749003042,".","Négatif","Modéré"
